@@ -1,0 +1,20 @@
+# Overlay: docker compose -f compose.yml -f compose.https.yml up --build -d
+services:
+  backend:
+    environment:
+      COOKIE_SECURE: "true"
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "443:443"
+      - "80:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+volumes:
+  caddy_data:
+  caddy_config:

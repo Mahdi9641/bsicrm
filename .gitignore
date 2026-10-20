@@ -1,0 +1,9 @@
+.env
+**/node_modules/
+**/.next/
+**/target/
+**/*.tsbuildinfo
+*.log
+backups/
+.idea/
+.vscode/

@@ -1,0 +1,10 @@
+https://172.31.13.30, https://localhost {
+    tls internal
+    encode zstd gzip
+    reverse_proxy frontend:3000
+    header {
+        X-Content-Type-Options nosniff
+        X-Frame-Options DENY
+        Referrer-Policy same-origin
+    }
+}

@@ -1,0 +1,60 @@
+name: bsicrm
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: bsicrm
+      POSTGRES_USER: bt
+      POSTGRES_PASSWORD: bt
+      TZ: UTC
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bt -d bsicrm"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/bsicrm
+      DB_USERNAME: bt
+      DB_PASSWORD: bt
+      JWT_SECRET: ${JWT_SECRET:?Run python scripts/setup.py first}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:[*],http://127.0.0.1:[*],http://172.31.13.30:[*],https://localhost:[*],https://172.31.13.30:[*]}
+      DEMO_DATA: ${DEMO_DATA:-false}
+      SMS_ENABLED: ${SMS_ENABLED:-false}
+      SMS_URL: ${SMS_URL:-}
+      SMS_TOKEN: ${SMS_TOKEN:-}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:3000}
+      TZ: UTC
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 10s
+      timeout: 5s
+      start_period: 40s
+      retries: 15
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        API_INTERNAL_URL: http://backend:8080
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
+volumes:
+  postgres_data:

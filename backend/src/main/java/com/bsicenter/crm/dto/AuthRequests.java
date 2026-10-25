@@ -19,7 +19,7 @@ public final class AuthRequests {
   public record Register(
       @NotNull @Positive Long branchId,
       @NotBlank @Size(max = 100) String firstName, @NotBlank @Size(max = 100) String lastName,
-      @NotNull @jakarta.validation.constraints.Pattern(regexp = "09[0-9]{9}") String mobile,
+      @NotNull @Pattern(regexp = "09[0-9]{9}") String mobile,
       @NotBlank @Size(min = 12, max = 72) String password,
       @NotBlank @Size(max = 80) String captchaId, @NotBlank @Size(max = 10) String captchaAnswer) {}
 

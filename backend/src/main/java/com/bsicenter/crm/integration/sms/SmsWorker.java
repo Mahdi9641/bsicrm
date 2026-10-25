@@ -38,7 +38,7 @@ public class SmsWorker {
     this.token = token;
     this.enabled = enabled;
     if (enabled && (!url.startsWith("https://") || token.isBlank()))
-      throw new IllegalArgumentException("SMS requires HTTPS URL and token");
+      throw new IllegalArgumentException("ارسال پیامک به نشانی امن HTTPS و توکن نیاز دارد");
   }
 
   @Scheduled(fixedDelay = 30000)
@@ -110,10 +110,10 @@ public class SmsWorker {
                 .build();
         var r = http.send(request, HttpResponse.BodyHandlers.ofString());
         if (r.statusCode() < 200 || r.statusCode() >= 300)
-          throw new IllegalStateException("Provider status " + r.statusCode());
+          throw new IllegalStateException("کد وضعیت سرویس پیامک: " + r.statusCode());
         String providerId = json.readTree(r.body()).path("id").asText();
         if (providerId.isBlank() || providerId.length() > 120)
-          throw new IllegalStateException("Invalid provider response");
+          throw new IllegalStateException("پاسخ سرویس پیامک معتبر نیست");
         db.run(
             "update messages set status='SENT',provider_id=?,sent_at=now() where id=?",
             providerId,

@@ -261,7 +261,7 @@ public class FinanceService {
           id,
           points);
     }
-    a.audit("PAYMENT", "INVOICE", id, "payment=" + paymentId);
+    a.audit("PAYMENT", "INVOICE", id, "شناسه پرداخت=" + paymentId);
     return db.one("select * from payments where id=?", paymentId);
   }
 

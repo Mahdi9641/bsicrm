@@ -13,18 +13,11 @@ import org.springframework.web.server.ResponseStatusException;
 public class CaptchaService {
   private final Db db; private final SecureRandom random=new SecureRandom();
   public CaptchaService(Db db){this.db=db;}
-  public void rate(String ip,String action,int max){
-    String key=AuthService.hash(action+":"+ip);
-    long count=db.id("insert into auth_rate_limits(key_hash,window_start,attempts) values(?,now(),1) on conflict(key_hash) do update set attempts=case when auth_rate_limits.window_start<now()-interval '10 minutes' then 1 else auth_rate_limits.attempts+1 end,window_start=case when auth_rate_limits.window_start<now()-interval '10 minutes' then now() else auth_rate_limits.window_start end returning attempts",key);
-    if(count>max) throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,"تعداد تلاش‌ها زیاد است؛ چند دقیقه بعد دوباره امتحان کنید");
-  }
   private String svg(String shape){
     return "data:image/svg+xml;base64,"+Base64.getEncoder().encodeToString(("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 80'><rect width='100' height='80' rx='16' fill='#ecf7f4'/><g fill='#167d71' stroke='#125f57' stroke-width='2'>"+shape+"</g></svg>").getBytes(java.nio.charset.StandardCharsets.UTF_8));
   }
   public Object create(String ip,String mode){
-    rate(ip,"captcha",100);
     db.run("delete from captcha_challenges where expires_at<now()");
-    db.run("delete from auth_rate_limits where window_start<now()-interval '1 day'");
     UUID id=UUID.randomUUID();String answer;Map<String,Object> out=new LinkedHashMap<>();out.put("id",id.toString());out.put("expiresIn",180);
     if("text".equals(mode)){
       int x=2+random.nextInt(20),y=1+random.nextInt(10);answer=""+(x+y);

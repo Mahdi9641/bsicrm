@@ -1,4 +1,5 @@
 "use client";
+import { ThemeToggle } from "@/components/ThemeProvider";
 import Captcha from "./Captcha";
 import { Logo } from "@/components/ui";
 import { api, Row } from "@/lib/api";
@@ -58,7 +59,7 @@ export default function Login({ onLogin, initialMode="staff" }: { onLogin: (u: R
         </div>
         <small>کلینیک کسب و کار و هوشمندسازی تجاری BsiCenter</small>
       </section>
-      <section className="login-form">
+      <section className="login-form"><ThemeToggle />
         <div className="eyebrow">خوش آمدید به فضای مدیریت شما</div>
         <h2>{mode==="register"?"ساخت حساب مشتری":"ورود به BsiCRM"}</h2>
         <div className="auth-tabs" role="tablist" aria-label="نوع ورود">{[["staff","مدیریت و کارکنان"],["customer","ورود مشتری"],["register","ثبت‌نام مشتری"]].map(([id,label])=><button key={id} type="button" role="tab" aria-selected={mode===id} onClick={()=>{setMode(id as typeof mode);setError("");setPassword("");setRevision(v=>v+1)}}>{label}</button>)}</div>

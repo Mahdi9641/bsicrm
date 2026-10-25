@@ -1,4 +1,5 @@
 "use client";
+import { ThemeToggle } from "@/components/ThemeProvider";
 import { Lookups } from "@/components/BusinessDialogs";
 import CommandPalette from "@/components/CommandPalette";
 import { Empty, Loading, Logo } from "@/components/ui";
@@ -494,7 +495,7 @@ export default function App() {
             <ChevronLeft size={13} />
             <b>{current?.title}</b>
           </div>
-          <div className="topbar-right">
+          <div className="topbar-right"><ThemeToggle />
             <button className="global-search" onClick={() => setCommands(true)}>
               <Search size={17} />
               <span>جستجو در سامانه</span>

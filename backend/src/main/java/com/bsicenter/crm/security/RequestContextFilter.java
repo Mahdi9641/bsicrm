@@ -37,7 +37,7 @@ public class RequestContextFilter extends OncePerRequestFilter {
     } finally {
       if (response.getStatus() >= 500) {
         log.error(
-            "Request failed method={} status={} elapsedMs={} requestId={}",
+            "درخواست ناموفق: روش={} وضعیت={} زمان‌میلی‌ثانیه={} شناسه={}",
             request.getMethod(),
             response.getStatus(),
             (System.nanoTime() - started) / 1_000_000,

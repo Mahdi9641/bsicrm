@@ -39,7 +39,7 @@ public class TenancyController {
     long branch=db.id("insert into branches(name,salon_id) values(?,?) returning id",b.branchName().trim(),salon);
     db.run("insert into accounts(branch_id,name) values(?,'صندوق اصلی')",branch);
     long manager=db.id("insert into app_users(name,username,password_hash,role,branch_id) values(?,?,?,'MANAGER',?) returning id",b.managerName().trim(),b.username().trim(),passwords.encode(b.password()),branch);
-    a.audit("CREATE","SALON",salon,"manager="+manager);
+    a.audit("CREATE","SALON",salon,"شناسه مدیر="+manager);
     return Map.of("id",salon,"branchId",branch,"managerId",manager);
   }
   @PutMapping("/salons/{id}") @Transactional public Object editSalon(@PathVariable long id,@Valid @RequestBody SalonEdit b){

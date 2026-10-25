@@ -75,7 +75,7 @@ public class EngagementService {
       count++;
     }
     db.run("update campaigns set status='QUEUED' where id=?", id);
-    a.audit("QUEUE", "CAMPAIGN", id, "recipients=" + count);
+    a.audit("QUEUE", "CAMPAIGN", id, "تعداد گیرندگان=" + count);
     return Map.of("count", count);
   }
 

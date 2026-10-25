@@ -1,6 +1,6 @@
 "use client";
 import { Table } from "@/components/ui";
-import { date } from "@/lib/api";
+import { date, labels, auditLabels } from "@/lib/api";
 import type { WorkspaceContext } from "./types";
 export default function AuditPage({
   filtered,
@@ -18,8 +18,8 @@ export default function AuditPage({
             render: (r) => date(r.created_at, true),
           },
           { key: "user_name", title: "کاربر" },
-          { key: "action", title: "عملیات" },
-          { key: "entity", title: "بخش" },
+          { key: "action", title: "عملیات", render: r => auditLabels[r.action] || labels[r.action] || "سایر عملیات" },
+          { key: "entity", title: "بخش", render: r => auditLabels[r.entity] || "سایر بخش‌ها" },
           { key: "entity_id", title: "شناسه" },
           { key: "detail", title: "جزئیات" },
         ]}

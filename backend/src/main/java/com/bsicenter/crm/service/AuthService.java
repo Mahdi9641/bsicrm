@@ -122,7 +122,7 @@ public class AuthService {
 
   public Object login(@Valid Login body, HttpServletRequest req, HttpServletResponse res) {
     origin(req);
-    challenges.rate(req.getRemoteAddr(),"login",40); challenges.verify(body.captchaId(), body.captchaAnswer());
+    challenges.verify(body.captchaId(), body.captchaAnswer());
     UUID sid = UUID.randomUUID();
     String token = random();
     String agent = Objects.toString(req.getHeader("User-Agent"), "");
@@ -177,7 +177,7 @@ public class AuthService {
   }
 
   public Object register(Register body, HttpServletRequest req, HttpServletResponse res) {
-    origin(req); challenges.rate(req.getRemoteAddr(),"login",40); challenges.verify(body.captchaId(), body.captchaAnswer());
+    origin(req); challenges.verify(body.captchaId(), body.captchaAnswer());
     String mobile = com.bsicenter.crm.validation.CustomerIdentity.phone(body.mobile());
     return tx.execute(s -> {
       var selected=db.one("select b.*,s.expires_on,s.active salon_active from branches b join salons s on s.id=b.salon_id where b.id=? and b.active",body.branchId());
@@ -195,7 +195,7 @@ public class AuthService {
   }
 
   public Object customerLogin(CustomerLogin body, HttpServletRequest req, HttpServletResponse res) {
-    origin(req); challenges.rate(req.getRemoteAddr(),"login",40); challenges.verify(body.captchaId(), body.captchaAnswer());
+    origin(req); challenges.verify(body.captchaId(), body.captchaAnswer());
     String mobile=com.bsicenter.crm.validation.CustomerIdentity.phone(body.mobile());
     var u=tx.execute(state -> {
       var rows=db.list("select u.* from app_users u join customers c on c.id=u.customer_id join branches b on b.id=? where c.mobile=? and c.salon_id=b.salon_id and u.role='CUSTOMER' and u.active and c.active for update of u",body.branchId(),mobile);

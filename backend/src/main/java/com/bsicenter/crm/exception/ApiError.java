@@ -14,6 +14,9 @@ import org.springframework.web.server.ResponseStatusException;
 
 @RestControllerAdvice
 public class ApiError {
+  private static String persian(String message,String fallback){
+    return message!=null && message.matches("(?s).*[\\u0600-\\u06ff].*")?message:fallback;
+  }
   public static ResponseStatusException bad(String message) {
     return new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
   }
@@ -51,7 +54,7 @@ public class ApiError {
           case 409 -> "CONFLICT";
           default -> "BUSINESS_RULE";
         };
-    return response(status, code, Objects.toString(e.getReason(), "خطا در درخواست"), request, null);
+    return response(status, code, persian(e.getReason(), "خطا در درخواست"), request, null);
   }
 
   @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -65,7 +68,7 @@ public class ApiError {
                         "field",
                         f.getField(),
                         "message",
-                        Objects.toString(f.getDefaultMessage(), "نامعتبر")))
+                        persian(f.getDefaultMessage(), "مقدار واردشده معتبر نیست")))
             .toList();
     return response(400, "VALIDATION_FAILED", "اطلاعات فرم معتبر نیست", request, fields);
   }
@@ -123,12 +126,18 @@ public class ApiError {
     return response(404, "NOT_FOUND", "مسیر پیدا نشد", request, null);
   }
 
+  @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+  public ResponseEntity<?> denied(Exception e,HttpServletRequest r){return response(403,"ACCESS_DENIED","اجازهٔ انجام این عملیات را ندارید",r,null);}
+  @ExceptionHandler(org.springframework.web.HttpMediaTypeNotSupportedException.class)
+  public ResponseEntity<?> media(Exception e,HttpServletRequest r){return response(415,"UNSUPPORTED_MEDIA_TYPE","نوع محتوای درخواست پشتیبانی نمی‌شود",r,null);}
+  @ExceptionHandler(jakarta.validation.ConstraintViolationException.class)
+  public ResponseEntity<?> constraint(Exception e,HttpServletRequest r){return response(400,"VALIDATION_FAILED","مقدار واردشده معتبر نیست",r,null);}
   @ExceptionHandler(Exception.class)
   public ResponseEntity<?> unexpected(Exception e, HttpServletRequest request) {
     // No exception message/body in logs: SQL and user data may be embedded in them.
     LoggerFactory.getLogger(ApiError.class)
         .error(
-            "Unhandled type={} requestId={} locations={}",
+            "خطای مدیریت‌نشده: نوع={} شناسه={} محل={}",
             e.getClass().getSimpleName(),
             request.getAttribute(RequestContextFilter.ATTRIBUTE),
             Arrays.stream(e.getStackTrace())

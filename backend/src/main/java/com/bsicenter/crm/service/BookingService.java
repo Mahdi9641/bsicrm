@@ -171,7 +171,7 @@ public class BookingService {
   @Transactional
   public Object create(Create request) {
     if (access.customer()) {
-      if (request.customerId() != access.customerId()) throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "دسترسی به این مشتری مجاز نیست");
+      if (request.customerId() != access.customerId()) throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "دسترسی به این مشتری مجاز نیست");
     } else access.operations();
     long branch = access.branch();
     db.one(

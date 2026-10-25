@@ -30,7 +30,7 @@ public class Bootstrap implements CommandLineRunner {
   @Transactional
   public void run(String... args) {
     if (admin.length() < 12 || admin.length() > 72)
-      throw new IllegalArgumentException("ADMIN_PASSWORD must be 12–72 characters");
+      throw new IllegalArgumentException("رمز مدیر باید بین ۱۲ تا ۷۲ نویسه باشد");
     if (db.id("select count(*) from app_users") == 0)
       db.run(
           "insert into app_users(username,password_hash,name,role,branch_id) values('admin',?,'مدیر"

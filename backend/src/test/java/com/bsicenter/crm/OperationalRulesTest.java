@@ -91,10 +91,10 @@ class OperationalRulesTest {
   @Test
   void rfmPrioritizesRecencyAndUsesFourReferenceSegments() {
     Db db = mock(Db.class);
-    when(db.one("select * from settings"))
+    when(db.one("select s.* from salons s join branches b on b.salon_id=s.id where b.id=?",1L))
         .thenReturn(
             Map.of("risk_days", 90L, "loyal_visits", 5L, "point_unit", new BigDecimal("100000")));
-    java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+    java.util.List<Map<String, Object>> rows = new java.util.ArrayList<>();
     for (long[] sample : new long[][] {{10, 5}, {90, 1}, {91, 8}, {180, 8}, {181, 10}}) {
       var row = new java.util.HashMap<String, Object>();
       var timestamp =

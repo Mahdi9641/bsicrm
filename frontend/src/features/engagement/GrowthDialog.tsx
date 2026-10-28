@@ -1,4 +1,5 @@
 "use client";
+import {canAccess} from "@/components/Permissions";
 import { Editor, field, Loading, Modal, Table } from "@/components/ui";
 import { api, fa, money, Row } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -61,7 +62,7 @@ export default function GrowthDialog({
               : fa(data.conversionPercent) + "٪"}
           </p>
           <div className="modal-actions">
-            {["ADMIN", "MANAGER", "MARKETING"].includes(user.role) && (
+            {canAccess(user,type+".write") && (
               <button
                 className="primary"
                 onClick={() => setMode("attributions")}
@@ -69,7 +70,7 @@ export default function GrowthDialog({
                 انتساب فاکتور
               </button>
             )}
-            {["ADMIN", "MANAGER", "FINANCE"].includes(user.role) && (
+            {canAccess(user,"finance.write")&&canAccess(user,type+".write") && (
               <button className="secondary" onClick={() => setMode("costs")}>
                 انتساب هزینه ثبت‌شده
               </button>

@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { api, labels, money, Row, uuid } from "@/lib/api";
 import { useEffect, useState } from "react";
 import { Badge, Editor, field, Modal, options, Table } from "../ui";
@@ -102,7 +103,7 @@ export function InvoiceDetail({
       )}
       <div className="modal-actions">
         {data.invoice.status !== "VOID" && (
-          <button
+          <Can permission="invoices.write"><button
             className="secondary"
             disabled={smsBusy || smsQueued}
             onClick={async () => {
@@ -120,17 +121,17 @@ export function InvoiceDetail({
             }}
           >
             {smsQueued ? "پیامک در صف قرار گرفت" : "ارسال لینک با پیامک"}
-          </button>
+          </button></Can>
         )}
         {remaining > 0 && data.invoice.status !== "VOID" && (
-          <button className="primary" onClick={() => setPayment(true)}>
+          <Can permission="invoices.write"><button className="primary" onClick={() => setPayment(true)}>
             ثبت پرداخت
-          </button>
+          </button></Can>
         )}
         <button className="secondary" onClick={() => window.print()}>
           چاپ فاکتور
         </button>
-        <button
+        <Can permission="invoices.write"><button
           className="secondary"
           onClick={async () => {
             try {
@@ -142,7 +143,7 @@ export function InvoiceDetail({
           }}
         >
           لینک امن فاکتور
-        </button>
+        </button></Can>
       </div>
       {payment && (
         <Editor

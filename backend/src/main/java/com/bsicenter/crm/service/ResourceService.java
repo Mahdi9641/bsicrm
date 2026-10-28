@@ -21,7 +21,7 @@ public class ResourceService {
 
   @Transactional(readOnly = true)
   public List<View> list() {
-    access.roles("ADMIN", "MANAGER", "RECEPTION", "STYLIST");
+    access.permission("resources.read");
     return repository.findByBranchIdOrderByName(access.branch()).stream().map(this::view).toList();
   }
 
@@ -31,7 +31,7 @@ public class ResourceService {
 
   @Transactional
   public View save(Long id, Write request) {
-    access.roles("ADMIN", "MANAGER");
+    access.permission("resources.write");
     var entity =
         id == null
             ? new SalonResourcesEntity()

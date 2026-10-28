@@ -35,7 +35,7 @@ public class FinanceService {
 
   @Transactional
   public Object invoice(@Valid Invoice b) {
-    a.sales();
+    a.permission("invoices.write");
     db.one(
         "select id from customers where id=? and branch_id=? and active",
         b.customerId(),
@@ -173,7 +173,7 @@ public class FinanceService {
   }
 
   public Object invoices() {
-    a.sales();
+    a.permission("invoices.read");
     return db.list(
         "select i.*,c.first_name||' '||c.last_name customer_name,coalesce((select sum(p.amount)"
             + " from payments p where p.invoice_id=i.id and not reversed),0) paid from invoices i"
@@ -183,7 +183,7 @@ public class FinanceService {
   }
 
   public Object detail(long id) {
-    a.sales();
+    a.permission("invoices.read");
     var row =
         db.one(
             "select i.*,c.first_name||' '||c.last_name customer_name,c.mobile from invoices i join"
@@ -207,7 +207,7 @@ public class FinanceService {
 
   @Transactional
   public Object pay(long id, @Valid Payment p) {
-    a.sales();
+    a.permission("invoices.write");
     var i = db.one("select * from invoices where id=? and branch_id=? for update", id, a.branch());
     var existing = db.list("select * from payments where idempotency_key=?", p.idempotencyKey());
     if (!existing.isEmpty()) {
@@ -267,7 +267,7 @@ public class FinanceService {
 
   @Transactional
   public Object voidInvoice(long id, @Valid Reason r) {
-    a.finance();
+    a.permission("invoices.write");
     var i = db.one("select * from invoices where id=? and branch_id=? for update", id, a.branch());
     if (i.get("status").equals("VOID")) throw ApiError.bad("فاکتور قبلاً باطل شده است");
     if (db.id(
@@ -319,7 +319,7 @@ public class FinanceService {
   }
 
   public Object finance() {
-    a.finance();
+    a.permission("finance.read");
     return Map.of(
         "accounts",
         db.list(
@@ -337,7 +337,7 @@ public class FinanceService {
 
   @Transactional
   public Object expense(@Valid Expense e) {
-    a.finance();
+    a.permission("finance.write");
     db.one(
         "select id from accounts where id=? and branch_id=? and active", e.accountId(), a.branch());
     long id =
@@ -362,7 +362,7 @@ public class FinanceService {
   }
 
   public Object commissions() {
-    a.roles("ADMIN", "MANAGER", "FINANCE", "STYLIST");
+    a.permission("commissions.read");
     a.plan("STANDARD");
     return db.list(
         "select c.*,s.name staff_name,x.description,i.id invoice_id,i.status invoice_status from"
@@ -375,7 +375,7 @@ public class FinanceService {
 
   @Transactional
   public Object settle(long id, @Valid Settlement s) {
-    a.finance();
+    a.permission("commissions.write");
     a.plan("STANDARD");
     var ref =
         db.one(
@@ -420,7 +420,7 @@ public class FinanceService {
   }
 
   public Object invoiceLink(long id) {
-    a.sales();
+    a.permission("invoices.write");
     db.one("select id from invoices where id=? and branch_id=?", id, a.branch());
     String token = AuthService.random();
     db.run(

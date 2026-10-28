@@ -16,8 +16,9 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/tenancy")
 public class TenancyController {
+  final com.bsicenter.crm.service.AccessManagementService iam;
   final Db db; final Access a; final PasswordEncoder passwords;
-  public TenancyController(Db db,Access a,PasswordEncoder p){this.db=db;this.a=a;this.passwords=p;}
+  public TenancyController(Db db,Access a,PasswordEncoder p,com.bsicenter.crm.service.AccessManagementService iam){this.iam=iam;this.db=db;this.a=a;this.passwords=p;}
   public record Salon(@NotBlank @Size(max=160) String name,@NotBlank @Size(max=120) String branchName,
     @NotBlank @Size(max=160) String managerName,@NotBlank @Size(max=80) String username,
     @NotBlank @Size(min=12,max=72) String password,@NotNull @Pattern(regexp="BASIC|STANDARD|ADVANCED|SMART") String plan,@NotNull LocalDate expiresOn){}
@@ -91,37 +92,20 @@ public class TenancyController {
     return db.list("select id,name from staff where branch_id=? and active order by name",branchId);
   }
   @GetMapping("/users") public Object users(){
-    a.roles("ADMIN","MANAGER");a.requireSubscription();
-    String sql="select u.id,u.name,u.username,u.role,u.branch_id,u.salon_id,u.staff_id,u.customer_id,u.active,u.locked_until,b.name branch_name from app_users u join branches b on b.id=u.branch_id";
-    return a.role().equals("ADMIN")?db.list(sql+" order by u.id"):db.list(sql+" where u.salon_id=? and u.role<>'ADMIN' order by u.id",a.salon());
+    return iam.users();
   }
   @PutMapping("/users/{id}") @Transactional public Object updateUser(@PathVariable long id,@Valid @RequestBody UserEdit b){
-    db.jdbc.execute("select pg_advisory_xact_lock(741004)");
-    var u=managedUser(id);
-    var branch=db.one("select * from branches where id=? and active",b.branchId());salonScope(Db.number(branch,"salon_id"));
-    if(!a.role().equals("ADMIN") && Set.of("ADMIN","MANAGER").contains(b.role())) throw ApiError.bad("ایجاد این نقش فقط توسط مدیر سامانه مجاز است");
-    if(id==a.uid() && (!b.active() || !b.role().equals(u.get("role")))) throw ApiError.bad("نقش یا وضعیت حساب جاری را نمی‌توانید تغییر دهید");
-    if(u.get("role").equals("ADMIN") && (!b.active() || !b.role().equals("ADMIN")) && db.id("select count(*) from app_users where role='ADMIN' and active and id<>?",id)==0) throw ApiError.bad("آخرین مدیر سامانه باید فعال بماند");
-    if(u.get("role").equals("CUSTOMER") != b.role().equals("CUSTOMER")) throw ApiError.bad("نقش حساب متصل به مشتری قابل تبدیل نیست");
-    if(u.get("customer_id")!=null && b.branchId()!=Db.number(u,"branch_id")) throw ApiError.bad("شعبهٔ حساب مشتری باید با پروندهٔ او یکسان باشد");
-    if(b.role().equals("STYLIST") && b.staffId()==null) throw ApiError.bad("پرسنل آرایشگر را انتخاب کنید");
-    if(b.staffId()!=null) db.one("select id from staff where id=? and branch_id=?",b.staffId(),b.branchId());
-    db.run("update app_users set name=?,username=?,role=?,branch_id=?,staff_id=?,active=?,failed_attempts=0,locked_until=null where id=?",b.name().trim(),b.username().trim(),b.role(),b.branchId(),b.staffId(),b.active(),id);
-    db.run("update auth_sessions set revoked=true where user_id=?",id);a.audit("UPDATE","USER",id,null);
-    return Map.of("ok",true,"reauthenticate",id==a.uid());
+    return iam.saveUser(id,iam.legacyUpdate(id,b.name(),b.username(),b.role(),b.branchId(),b.staffId(),b.active()));
   }
   @PostMapping("/users/{id}/password") @Transactional public Object reset(@PathVariable long id,@Valid @RequestBody Password b){
-    managedUser(id);db.run("update app_users set password_hash=?,failed_attempts=0,locked_until=null where id=?",passwords.encode(b.password()),id);
-    db.run("update auth_sessions set revoked=true where user_id=?",id);a.audit("PASSWORD_RESET","USER",id,null);return Map.of("ok",true);
+    return iam.reset(id,new com.bsicenter.crm.service.AccessManagementService.Password(b.password()));
   }
   @PostMapping("/users/{id}/revoke") @Transactional public Object revoke(@PathVariable long id){
-    managedUser(id);db.run("update auth_sessions set revoked=true where user_id=?",id);a.audit("REVOKE_SESSIONS","USER",id,null);return Map.of("ok",true);
+    return iam.revoke(id);
   }
   @PostMapping("/customers/{id}/account") @Transactional public Object customerAccount(@PathVariable long id,@Valid @RequestBody Password b){
-    a.roles("ADMIN","MANAGER");a.requireSubscription();
-    var c=db.one("select * from customers where id=? and branch_id=? and active for update",id,a.branch());
-    if(!db.list("select id from app_users where customer_id=?",id).isEmpty()) throw ApiError.conflict("این مشتری حساب دارد؛ از مدیریت کاربران رمز را تغییر دهید");
-    long uid=db.id("insert into app_users(username,name,password_hash,role,branch_id,customer_id) values(?,?,?,'CUSTOMER',?,?) returning id","customer:"+c.get("salon_id")+":"+id,c.get("first_name")+" "+c.get("last_name"),passwords.encode(b.password()),a.branch(),id);
-    a.audit("CREATE_ACCOUNT","CUSTOMER",id,null);return Map.of("id",uid);
+    a.permission("users.write");
+    var c=db.one("select * from customers where id=? and branch_id=? and active",id,a.branch());
+    return iam.saveUser(null,new com.bsicenter.crm.service.AccessManagementService.UserWrite(c.get("first_name")+" "+c.get("last_name"),"customer:"+c.get("salon_id")+":"+id,b.password(),iam.builtInRole("CUSTOMER"),a.branch(),null,id,true,Map.of(),0L));
   }
 }

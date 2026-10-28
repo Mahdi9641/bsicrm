@@ -23,7 +23,7 @@ public class OperationsService {
   }
 
   public Object appointments(OffsetDateTime from, OffsetDateTime to) {
-    a.roles("ADMIN", "MANAGER", "RECEPTION", "STYLIST");
+    a.permission("appointments.read");
     if (!to.isAfter(from) || Duration.between(from, to).toDays() > 93)
       throw ApiError.bad("بازه گزارش حداکثر ۹۳ روز است");
     String filter =
@@ -65,7 +65,7 @@ public class OperationsService {
 
   @Transactional
   public Object status(long id, @Valid Status s) {
-    a.operations();
+    a.permission("appointments.write");
     var ap =
         db.one("select * from appointments where id=? and branch_id=? for update", id, a.branch());
     String old = ap.get("status").toString();
@@ -88,7 +88,7 @@ public class OperationsService {
 
   @Transactional
   public Object checkIn(@Valid CheckIn c) {
-    a.operations();
+    a.permission("visits.write");
     db.one(
         "select id from customers where id=? and branch_id=? and active",
         c.customerId(),
@@ -126,7 +126,7 @@ public class OperationsService {
   }
 
   public Object visits() {
-    a.roles("ADMIN", "MANAGER", "RECEPTION", "STYLIST");
+    a.permission("visits.read");
     String filter =
         a.stylist()
             ? " and exists(select 1 from visit_services vs where vs.visit_id=v.id and vs.staff_id="
@@ -156,7 +156,7 @@ public class OperationsService {
 
   @Transactional
   public Object addService(long id, @Valid BookingItem b) {
-    a.operations();
+    a.permission("visits.write");
     db.one(
         "select * from visits where id=? and branch_id=? and status in ('WAITING','IN_SERVICE') for"
             + " update",
@@ -181,7 +181,7 @@ public class OperationsService {
 
   @Transactional
   public Object serviceStatus(long id, @Valid ServiceStatus s) {
-    a.roles("ADMIN", "MANAGER", "RECEPTION", "STYLIST");
+    a.permission("visits.execute");
     var row =
         db.one(
             "select x.*,v.branch_id from visit_services x join visits v on v.id=x.visit_id where"
@@ -210,7 +210,7 @@ public class OperationsService {
 
   @Transactional
   public Object complete(long id) {
-    a.operations();
+    a.permission("visits.write");
     var v =
         db.one(
             "select * from visits where id=? and branch_id=? and status in ('WAITING','IN_SERVICE')"

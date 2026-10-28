@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { Badge, Table } from "@/components/ui";
 import TemplatesPanel from "@/features/engagement/TemplatesPanel";
 import { date } from "@/lib/api";
@@ -41,13 +42,13 @@ export default function MessagesPage({
         ]}
         actions={(r) =>
           r.status === "QUEUED" ? (
-            <button
+            <Can permission="messages.write"><button
               className="text-button danger"
               disabled={busyAction}
               onClick={() => action("/messages/" + r.id + "/cancel")}
             >
               لغو ارسال
-            </button>
+            </button></Can>
           ) : null
         }
       />

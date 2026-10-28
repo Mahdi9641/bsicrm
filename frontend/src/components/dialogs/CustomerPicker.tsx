@@ -23,9 +23,9 @@ export function CustomerPicker({
     let active = true;
     const t = setTimeout(() => {
       setError("");
-      api("/customers?q=" + encodeURIComponent(q))
+      api("/lookups?q=" + encodeURIComponent(q))
         .then((r) => {
-          if (active) setRows(r);
+          if (active) setRows(r.customers);
         })
         .catch((e) => {
           if (active) setError(e.message);
@@ -47,9 +47,9 @@ export function CustomerPicker({
       return;
     }
     let live = true;
-    api("/customers/" + value)
+    api("/lookups?customerId=" + value)
       .then((r) => {
-        if (live) setSelected(r.customer);
+        if (live) setSelected(r.customers[0]||null);
       })
       .catch((e) => {
         if (live) setError(e.message);

@@ -20,7 +20,7 @@ public class CommissionRuleService {
   }
 
   public Object list() {
-    access.roles("ADMIN", "MANAGER", "FINANCE");
+    access.permission("commission-rules.read");
     access.plan("STANDARD");
     return db.list(
         "select r.*,s.name staff_name,v.name service_name from commission_rules r join staff s on"
@@ -31,7 +31,7 @@ public class CommissionRuleService {
 
   @Transactional
   public Object create(Rule r) {
-    access.roles("ADMIN", "MANAGER");
+    access.permission("commission-rules.write");
     access.plan("STANDARD");
     if (r.validTo().isBefore(r.validFrom()))
       throw ApiError.bad("پایان اعتبار باید پس از شروع باشد");
@@ -61,7 +61,7 @@ public class CommissionRuleService {
 
   @Transactional
   public Object deactivate(long id) {
-    access.roles("ADMIN", "MANAGER");
+    access.permission("commission-rules.write");
     access.plan("STANDARD");
     db.one(
         "select id from commission_rules where id=? and branch_id=? for update",

@@ -23,7 +23,7 @@ public class EngagementService {
   }
 
   public Object campaigns() {
-    a.marketing();
+    a.permission("campaigns.read");
     a.plan("ADVANCED");
     return db.list(
         "select c.*,(select count(*) from campaign_recipients r where r.campaign_id=c.id)"
@@ -33,7 +33,7 @@ public class EngagementService {
   }
 
   public Object campaign(@Valid Campaign c) {
-    a.marketing();
+    a.permission("campaigns.write");
     a.plan("ADVANCED");
     return Map.of(
         "id",
@@ -50,7 +50,7 @@ public class EngagementService {
 
   @Transactional
   public Object queue(long id) {
-    a.marketing();
+    a.permission("campaigns.write");
     a.plan("ADVANCED");
     var c = db.one("select * from campaigns where id=? and branch_id=? for update", id, a.branch());
     if (!c.get("status").equals("DRAFT")) throw ApiError.bad("فقط پیش‌نویس قابل آماده‌سازی است");
@@ -81,7 +81,7 @@ public class EngagementService {
 
   @Transactional
   public Object cancel(long id) {
-    a.marketing();
+    a.permission("campaigns.write");
     a.plan("ADVANCED");
     db.one("select id from campaigns where id=? and branch_id=? for update", id, a.branch());
     db.run("update campaigns set status='CANCELLED' where id=?", id);
@@ -90,7 +90,7 @@ public class EngagementService {
   }
 
   public Object messages() {
-    a.marketing();
+    a.permission("messages.read");
     a.plan("STANDARD");
     return db.list(
         "select m.*,c.first_name||' '||c.last_name customer_name from messages m join customers c"
@@ -99,7 +99,7 @@ public class EngagementService {
   }
 
   public Object events() {
-    a.marketing();
+    a.permission("events.read");
     a.plan("ADVANCED");
     return db.list(
         "select e.*,(select count(*) from event_participants x where x.event_id=e.id and"
@@ -110,7 +110,7 @@ public class EngagementService {
   }
 
   public Object event(@Valid Event e) {
-    a.marketing();
+    a.permission("events.write");
     a.plan("ADVANCED");
     if (!e.endsAt().isAfter(e.startsAt())) throw ApiError.bad("زمان پایان معتبر نیست");
     return Map.of(
@@ -129,7 +129,7 @@ public class EngagementService {
   }
 
   public Object participants(long id) {
-    a.marketing();
+    a.permission("events.read");
     a.plan("ADVANCED");
     db.one("select id from events where id=? and branch_id=?", id, a.branch());
     return db.list(
@@ -140,7 +140,7 @@ public class EngagementService {
 
   @Transactional
   public Object participant(long id, @Valid Participant p) {
-    a.marketing();
+    a.permission("events.write");
     a.plan("ADVANCED");
     var e =
         db.one(

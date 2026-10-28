@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { Badge, Empty } from "@/components/ui";
 import { fa, labels, money } from "@/lib/api";
 import { Mail, Megaphone, Send } from "lucide-react";
@@ -53,23 +54,23 @@ export default function CampaignsPage({
                 نتیجه و بازده سرمایه‌گذاری
               </button>
               {c.status === "DRAFT" && (
-                <button
+                <Can permission="campaigns.write"><button
                   className="primary"
                   disabled={busyAction}
                   onClick={() => setDialog({ type: "queueCampaign", row: c })}
                 >
                   <Send size={16} />
                   آماده‌سازی ارسال
-                </button>
+                </button></Can>
               )}
               {["DRAFT", "QUEUED"].includes(c.status) && (
-                <button
+                <Can permission="campaigns.write"><button
                   className="secondary"
                   disabled={busyAction}
                   onClick={() => action("/campaigns/" + c.id + "/cancel")}
                 >
                   لغو کمپین
-                </button>
+                </button></Can>
               )}
             </div>
           </section>

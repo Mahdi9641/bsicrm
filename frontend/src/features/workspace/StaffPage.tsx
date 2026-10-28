@@ -1,4 +1,5 @@
 "use client";
+import { Can } from "@/components/Permissions";
 import { fa } from "@/lib/api";
 import { avatar } from "./shared";
 import type { WorkspaceContext } from "./types";
@@ -26,7 +27,7 @@ export default function StaffPage({ filtered, setDialog }: WorkspaceContext) {
               خدمات مجاز<b>{fa(s.service_ids?.length)}</b>
             </span>
           </div>
-          <div className="card-actions">
+          <Can permission="staff.write"><div className="card-actions">
             <button
               className="secondary"
               onClick={() => setDialog({ type: "staff", row: s })}
@@ -39,7 +40,7 @@ export default function StaffPage({ filtered, setDialog }: WorkspaceContext) {
             >
               ثبت مرخصی
             </button>
-          </div>
+          </div></Can>
         </section>
       ))}
     </div>

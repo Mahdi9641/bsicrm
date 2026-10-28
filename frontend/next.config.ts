@@ -11,11 +11,11 @@ const config: NextConfig = {
         "/v3/api-docs.yaml",
       ].map((source) => ({
         source,
-        destination: `${process.env.API_INTERNAL_URL || "http://localhost:9090"}${source}`,
+        destination: `${process.env.API_INTERNAL_URL || "http://localhost:8080"}${source}`,
       })),
       {
         source: "/api/:path*",
-        destination: `${process.env.API_INTERNAL_URL || "http://localhost:9090"}/api/:path*`,
+        destination: `${process.env.API_INTERNAL_URL || "http://localhost:8080"}/api/:path*`,
       },
     ];
   },

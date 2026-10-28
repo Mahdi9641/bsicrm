@@ -17,6 +17,8 @@ public class CatalogController {
     this.service = service;
   }
 
+  @GetMapping("/lookups") public Object lookups(@RequestParam(defaultValue="") String q,@RequestParam(required=false) Long customerId){return service.lookups(q,customerId);}
+
   @GetMapping("/bootstrap")
   public Object bootstrap() {
     return service.bootstrap();

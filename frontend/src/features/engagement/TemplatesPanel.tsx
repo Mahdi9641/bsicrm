@@ -1,8 +1,10 @@
 "use client";
+import {usePermissions} from "@/components/Permissions";
 import { Editor, field } from "@/components/ui";
 import { api, Row } from "@/lib/api";
 import { useEffect, useState } from "react";
 export default function TemplatesPanel() {
+  const has=usePermissions();
   const [rows, setRows] = useState<Row[]>([]),
     [edit, setEdit] = useState<Row | null>(null),
     [error, setError] = useState("");
@@ -36,14 +38,14 @@ export default function TemplatesPanel() {
           <button
             className="automation-card"
             key={r.id}
-            onClick={() => setEdit(r)}
+            disabled={!has("messages.write")} onClick={() => setEdit(r)}
           >
             <span className={r.active ? "subtle-chip" : "muted"}>
               {r.active ? "فعال" : "غیرفعال"}
             </span>
             <h3>{title[r.kind]}</h3>
             <p>{r.body}</p>
-            <small>ویرایش قالب و زمان‌بندی ←</small>
+            {has("messages.write")&&<small>ویرایش قالب و زمان‌بندی ←</small>}
           </button>
         ))}
       </div>

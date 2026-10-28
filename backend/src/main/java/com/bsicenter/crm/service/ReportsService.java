@@ -73,7 +73,7 @@ public class ReportsService {
               a.staffId()));
     }
     result.put(
-        "canSchedule", Set.of("ADMIN", "MANAGER", "RECEPTION", "STYLIST").contains(a.role()));
+        "canSchedule", a.has("appointments.read"));
     result.put(
         "schedule",
         db.list(
@@ -86,7 +86,7 @@ public class ReportsService {
             branch,
             start,
             end));
-    if (Set.of("ADMIN", "MANAGER", "FINANCE").contains(a.role())) {
+    if (a.has("finance.read")) {
       result.put(
           "revenue",
           db.jdbc.queryForObject(
@@ -123,7 +123,7 @@ public class ReportsService {
                   + " by x.description order by total desc limit 5",
               branch));
     }
-    if (Set.of("ADMIN", "MANAGER", "MARKETING").contains(a.role())) {
+    if (a.has("rfm.read")) {
       var groups = new LinkedHashMap<String, Long>();
       for (String key : List.of("LOYAL", "GROWING", "AT_RISK", "LOST")) groups.put(key, 0L);
       analytics
@@ -135,27 +135,30 @@ public class ReportsService {
               });
       result.put("segments", groups);
     }
-    if (Set.of("ADMIN", "MANAGER", "RECEPTION", "MARKETING").contains(a.role()))
+    if (a.has("tasks.read"))
       result.put("followUps", tasks.summary());
-    if (Set.of("ADMIN", "MANAGER", "RECEPTION").contains(a.role()))
+    if (a.has("products.read"))
       result.put(
           "lowStock",
           db.list(
               "select id,name,stock,minimum_stock from products where branch_id=? and active and"
                   + " stock<=minimum_stock order by stock limit 5",
               branch));
+    if(!a.has("appointments.read")){result.remove("appointments");result.put("schedule",List.of());}
+    if(!a.has("customers.read"))result.remove("customers");
+    if(!a.has("visits.read")){result.remove("waiting");result.remove("myVisits");}
     return result;
   }
 
   public Object rfm() {
-    a.marketing();
+    a.permission("rfm.read");
     a.plan("ADVANCED");
     return analytics.rfm(a.branch());
   }
 
   @org.springframework.transaction.annotation.Transactional
   public Object snapshot() {
-    a.marketing();
+    a.permission("rfm.write");
     a.plan("ADVANCED");
     var rows = analytics.rfm(a.branch());
     for (var r : rows)
@@ -172,7 +175,7 @@ public class ReportsService {
   }
 
   public Object loyalty() {
-    a.roles("ADMIN", "MANAGER", "RECEPTION", "MARKETING");
+    a.permission("loyalty.read");
     a.plan("STANDARD");
     return analytics.rfm(a.branch()).stream()
         .map(
@@ -191,7 +194,7 @@ public class ReportsService {
 
   @org.springframework.transaction.annotation.Transactional
   public Object points(long id, @jakarta.validation.Valid Points p) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("loyalty.write");
     a.plan("STANDARD");
     db.one("select id from customers where id=? and branch_id=? for update", id, a.branch());
     long total =
@@ -208,7 +211,7 @@ public class ReportsService {
 
   public Object reports(
       OffsetDateTime from, OffsetDateTime to, Long staffId, Long serviceId, Long customerId) {
-    a.finance();
+    a.permission("reports.read");
     a.plan("ADVANCED");
     if (!to.isAfter(from) || Duration.between(from, to).toDays() > 366)
       throw ApiError.bad("بازه گزارش حداکثر یک سال است");

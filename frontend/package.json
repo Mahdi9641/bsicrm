@@ -9,7 +9,9 @@
     "typecheck": "tsc --noEmit",
     "test:ui": "node tests/build.cjs && node tests/ui.cjs",
     "test": "node tests/build.cjs && node tests/api.cjs",
-    "test:portal": "node tests/build.cjs && node tests/portal.cjs"
+    "test:portal": "node tests/build.cjs && node tests/portal.cjs",
+    "test:access": "node tests/rbac-api.cjs",
+    "test:access-ui": "node tests/build.cjs && node tests/access-ui.cjs"
   },
   "dependencies": {
     "@fontsource/vazirmatn": "^5.2.6",

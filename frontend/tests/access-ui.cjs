@@ -1,0 +1,54 @@
+// Runs only against an explicitly authorized disposable database.
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+if(process.env.BSICRM_TEST_ALLOW_WRITES!=='true'||!process.env.BSICRM_TEST_PASSWORD)throw Error('فقط روی پایگاه آزمایشی: BSICRM_TEST_ALLOW_WRITES=true و BSICRM_TEST_PASSWORD را تنظیم کنید');
+const output=path.resolve(__dirname,'../test-results');fs.mkdirSync(output,{recursive:true});
+const {JSDOM}=require('jsdom');const dom=new JSDOM('<!doctype html><html lang="fa" dir="rtl"><body></body></html>',{url:'http://localhost:3000',pretendToBeVisual:true});
+for(const key of ['window','document','navigator','HTMLElement','HTMLInputElement','HTMLSelectElement','HTMLTextAreaElement','Event','CustomEvent','MouseEvent','KeyboardEvent','MutationObserver','getComputedStyle','localStorage','location'])Object.defineProperty(global,key,{value:key==='getComputedStyle'?dom.window.getComputedStyle.bind(dom.window):dom.window[key],configurable:true});
+global.requestAnimationFrame=cb=>setTimeout(cb,0);global.cancelAnimationFrame=clearTimeout;global.confirm=()=>true;window.matchMedia=()=>({matches:false,addListener(){},removeListener(){}});window.scrollTo=()=>{};
+const nativeFetch=global.fetch;let cookie='';const requests=[];
+global.fetch=async(route,options={})=>{const headers={...options.headers,Origin:'http://localhost:3000',...(cookie?{Cookie:cookie}:{})};const res=await nativeFetch((process.env.BSICRM_TEST_API||'http://127.0.0.1:8080')+route,{...options,headers});const setCookie=res.headers.get('set-cookie');if(setCookie)cookie=setCookie.split(';')[0];requests.push({path:route,method:options.method||'GET',status:res.status});return res;};
+const React=require('react');const {render,screen,waitFor,within,cleanup}=require('@testing-library/react');const user=require('@testing-library/user-event').default.setup();
+const {App,Portal,ThemeProvider,PersianValidation,navigation,api,refreshSession,testNavigate}=require('../test-results/components.cjs');
+const results=[];const suffix=String(Date.now()).slice(-7),phone='0912'+suffix,testName='آزمون '+suffix;
+const delay=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+async function settle(){await delay(300);await waitFor(()=>assert.ok(!document.querySelector('.loading'), 'بارگذاری هنوز تمام نشده است'),{timeout:15000});await delay(150)}
+async function nav(name){await user.click(within(document.querySelector('.sidebar')).getByRole('button',{name,exact:true}));await settle()}
+async function fill(label,value){const input=within(document.querySelector('.modal')).getByLabelText(label);await user.clear(input);await user.type(input,String(value))}
+async function save(){await user.click(within(document.querySelector('.modal')).getByRole('button',{name:'ذخیره اطلاعات'}));await waitFor(()=>assert.ok(!document.querySelector('.modal'), 'فرم هنوز باز است'),{timeout:10000});await settle()}
+async function check(name,fn){try{await fn();results.push({name,result:'PASS'});console.log('PASS',name)}catch(e){results.push({name,result:'FAIL',error:e.message.slice(0,500)});console.log('FAIL',name,e.message.slice(0,220));fs.writeFileSync(path.join(output,'failure.html'),document.body.innerHTML);for(const b of [...document.querySelectorAll('button[aria-label="بستن"]')].reverse())await user.click(b).catch(()=>{});}}
+async function solveLocalTestChallenge(){await waitFor(()=>assert.ok(document.querySelector('.captcha-target img')));const src=document.querySelector('.captcha-target img').src;await user.click([...document.querySelectorAll('.captcha-choices button')].find(b=>b.querySelector('img').src===src));}
+(async()=>{
+render(React.createElement(ThemeProvider,null,React.createElement(PersianValidation),React.createElement(App)));
+await check('ورود از فرم رابط',async()=>{await screen.findByPlaceholderText('نام کاربری خود را وارد کنید',{}, {timeout:15000});await user.type(screen.getByPlaceholderText('نام کاربری خود را وارد کنید'),'admin');await user.type(screen.getByPlaceholderText('رمز عبور'),process.env.BSICRM_TEST_PASSWORD);await solveLocalTestChallenge();await user.click(screen.getByRole('button',{name:'ورود به فضای مدیریت'}));await waitFor(()=>assert.ok(document.querySelector('.sidebar')),{timeout:15000});await settle()});
+
+const roleName='نقش محدود رابط '+suffix,username='uiaccess'+suffix;
+const editor=()=>within(screen.getByRole('dialog'));
+async function saveAccess(){await user.click(editor().getByRole('button',{name:'ذخیره دسترسی'}));await waitFor(()=>assert.ok(!screen.queryByRole('dialog'),document.querySelector('[role=alert]')?.textContent||'فرم هنوز باز است'),{timeout:15000});await settle()}
+await check('ساخت نقش و وابستگی مشاهده و تغییر از رابط',async()=>{
+ await nav('مدیریت نقش‌ها');await user.click(screen.getByRole('button',{name:'نقش جدید'}));await user.type(editor().getByLabelText('نام نقش'),roleName);
+ const read=editor().getByRole('checkbox',{name:'پرونده مشتریان — مشاهده'}),write=editor().getByRole('checkbox',{name:'پرونده مشتریان — ثبت و تغییر'});
+ await user.click(write);assert.ok(read.checked);await user.click(read);assert.ok(!write.checked);await user.click(read);await user.click(editor().getByRole('checkbox',{name:'پرسنل — مشاهده'}));await saveAccess();await waitFor(()=>assert.ok(document.body.textContent.includes(roleName)),{timeout:15000});
+});
+let accountId;
+await check('ساخت کاربر با نقش انتخابی از رابط',async()=>{
+ await nav('مدیریت کاربران');await user.click(screen.getByRole('button',{name:'کاربر جدید'}));await user.type(editor().getByLabelText('نام کامل'),'کاربر رابط '+suffix);await user.type(editor().getByLabelText('نام کاربری'),username);await user.type(editor().getByLabelText(/^رمز عبور/),process.env.BSICRM_TEST_PASSWORD);
+ const select=editor().getByLabelText('نقش دسترسی');await user.selectOptions(select,[...select.options].find(o=>o.textContent.includes(roleName)).value);await saveAccess();const rows=await api('/access/users');accountId=rows.find(r=>r.username===username).id;
+});
+await check('ثبت منع اختصاصی کاربر از رابط',async()=>{
+ await waitFor(()=>assert.ok([...document.querySelectorAll('.access-center tbody tr')].some(r=>r.textContent.includes(username))),{timeout:15000});const row=[...document.querySelectorAll('.access-center tbody tr')].find(r=>r.textContent.includes(username));await user.click(within(row).getByRole('button',{name:'ویرایش'}));await user.selectOptions(editor().getByLabelText('پرونده مشتریان — ثبت و تغییر'),'deny');await saveAccess();const detail=await api('/access/users/'+accountId);assert.equal(detail.overrides['customers.write'],false);assert.deepEqual([...detail.menus].sort(),['customers','security','staff']);
+});
+await check('نمایش دسترسی مؤثر و فیلتر کاربران',async()=>{
+ await user.type(screen.getByLabelText('جستجوی کاربران و نقش‌ها'),username);assert.equal(document.querySelectorAll('.access-center tbody tr').length,1);await user.click(screen.getByRole('button',{name:'مشاهدهٔ دسترسی'}));assert.ok(screen.getByRole('dialog',{name:'دسترسی مؤثر'}).textContent.includes('پرونده مشتریان — مشاهده'));await user.click(editor().getByRole('button',{name:'بستن'}));
+});
+const expiry=new Date();expiry.setFullYear(expiry.getFullYear()+1);
+const managerName='uimanager'+suffix;await api('/tenancy/salons','POST',{name:'سالن رابط '+suffix,branchName:'شعبه رابط',managerName:'مدیر رابط',username:managerName,password:process.env.BSICRM_TEST_PASSWORD,plan:'SMART',expiresOn:expiry.toISOString().slice(0,10)});
+await check('ورود کاربر محدود و نمایش فقط منوهای مجاز',async()=>{
+ await user.click(screen.getByRole('button',{name:/خروج/}));await screen.findByPlaceholderText('نام کاربری خود را وارد کنید');await user.type(screen.getByPlaceholderText('نام کاربری خود را وارد کنید'),username);await user.type(screen.getByPlaceholderText('رمز عبور'),process.env.BSICRM_TEST_PASSWORD);await solveLocalTestChallenge();await user.click(screen.getByRole('button',{name:'ورود به فضای مدیریت'}));await waitFor(()=>assert.ok(document.querySelector('.sidebar')),{timeout:15000});await settle();
+ const sidebar=within(document.querySelector('.sidebar'));assert.ok(sidebar.getByRole('button',{name:'پرونده مشتریان',exact:true}));assert.ok(sidebar.getByRole('button',{name:'امنیت حساب من',exact:true}));for(const name of ['مدیریت کاربران','مدیریت نقش‌ها','حساب‌ها و هزینه‌ها'])assert.equal(sidebar.queryByRole('button',{name,exact:true}),null);assert.equal(screen.queryByRole('button',{name:'مشتری جدید',exact:true}),null);assert.equal(document.querySelector('[role=alert]'),null);
+});
+await check('رد درخواست تغییر از حساب فقط‌خواندنی',async()=>{await assert.rejects(()=>api('/customers','POST',{}),e=>e.status===403);await assert.rejects(()=>api('/access/users'),e=>e.status===403)});
+await check('صفحهٔ پرسنل فقط‌خواندنی دکمهٔ تغییر ندارد',async()=>{await nav('تیم زیبایی');assert.ok(document.querySelectorAll('.staff-card').length>0);assert.equal(screen.queryByRole('button',{name:'ویرایش پروفایل'}),null);assert.equal(screen.queryByRole('button',{name:'ثبت مرخصی'}),null);await assert.rejects(()=>api('/staff','POST',{}),e=>e.status===403)});
+await check('مسیر مستقیم صفحهٔ غیرمجاز در رابط مسدود است',async()=>{testNavigate('/users');await waitFor(()=>assert.ok(document.body.textContent.includes('دسترسی به این صفحه برای نقش شما مجاز نیست')));assert.equal(document.querySelector('.access-center'),null);await user.click(screen.getByRole('button',{name:'رفتن به صفحهٔ مجاز'}));await settle();assert.ok(!document.body.textContent.includes('دسترسی به این صفحه برای نقش شما مجاز نیست'))});
+await check('مدیر سالن صفحه شعبه‌ها را بدون مجوز مدیریت سایر سالن‌ها می‌بیند',async()=>{await user.click(screen.getByRole('button',{name:/خروج/}));await screen.findByPlaceholderText('نام کاربری خود را وارد کنید');await user.type(screen.getByPlaceholderText('نام کاربری خود را وارد کنید'),managerName);await user.type(screen.getByPlaceholderText('رمز عبور'),process.env.BSICRM_TEST_PASSWORD);await solveLocalTestChallenge();await user.click(screen.getByRole('button',{name:'ورود به فضای مدیریت'}));await waitFor(()=>assert.ok(document.querySelector('.sidebar')),{timeout:15000});await settle();assert.equal(within(document.querySelector('.sidebar')).queryByRole('button',{name:'مدیریت سالن‌ها',exact:true}),null);await nav('مدیریت شعب');assert.equal(document.querySelector('[role=alert]'),null);assert.equal(document.querySelectorAll('.admin-table tbody tr').length,1);assert.ok(document.body.textContent.includes('شعبه رابط'))});
+fs.writeFileSync(path.join(output,'access-ui-results.json'),JSON.stringify({environment:'React Testing Library / jsdom + live Spring API; not visual browser testing',results,requests},null,2));cleanup();console.log('DONE',results.filter(x=>x.result==='PASS').length,results.length);process.exit(results.some(x=>x.result==='FAIL')?1:0);
+})().catch(e=>{console.error(e);process.exit(1)});

@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { api, date, fa, labels, Row } from "@/lib/api";
 import { localDateTime } from "@/lib/dates";
 import {
@@ -99,10 +100,10 @@ export default function TasksWorkspace({ user }: { user: Row }) {
           <h2>هیچ پیگیری‌ای از قلم نیفتد.</h2>
           <p>مسئول مشخص، زمان روشن و سابقهٔ هر گفتگو؛ همه در یک برد.</p>
         </div>
-        <button className="primary" onClick={() => setEditor({})}>
+        <Can permission="tasks.write"><button className="primary" onClick={() => setEditor({})}>
           <Plus size={18} />
           پیگیری جدید
-        </button>
+        </button></Can>
       </div>
       <div className="task-metrics">
         {[
@@ -287,7 +288,7 @@ export default function TasksWorkspace({ user }: { user: Row }) {
                           </button>
                         </footer>
                         {active(r) && (
-                          <button
+                          <Can permission="tasks.write"><button
                             disabled={busy}
                             className="task-next"
                             onClick={() =>
@@ -301,7 +302,7 @@ export default function TasksWorkspace({ user }: { user: Row }) {
                               ? "شروع پیگیری"
                               : "تکمیل پیگیری"}
                             <ArrowLeft size={15} />
-                          </button>
+                          </button></Can>
                         )}
                       </article>
                     ))
@@ -424,7 +425,7 @@ function TaskEditor({
       onClose={close}
       wide
     >
-      <form
+      <Can permission="tasks.write"><form
         onSubmit={async (e) => {
           e.preventDefault();
           setBusy(true);
@@ -508,13 +509,13 @@ function TaskEditor({
               onChange={(id) => change("customerId", id)}
             />
             {form.customerId > 0 && (
-              <button
+              <Can permission="tasks.write"><button
                 type="button"
                 className="text-button"
                 onClick={() => change("customerId", 0)}
               >
                 حذف ارتباط با مشتری
-              </button>
+              </button></Can>
             )}
           </div>
           <label className="full">
@@ -545,7 +546,7 @@ function TaskEditor({
             انصراف
           </button>
         </div>
-      </form>
+      </form></Can>
     </Modal>
   );
 }
@@ -625,7 +626,7 @@ function TaskDetail({
           <div className="detail-actions">
             {active(data.task) ? (
               <>
-                <button
+                <Can permission="tasks.write"><button
                   disabled={busy}
                   className="primary"
                   onClick={() =>
@@ -633,31 +634,31 @@ function TaskDetail({
                   }
                 >
                   {data.task.status === "OPEN" ? "شروع پیگیری" : "ثبت تکمیل"}
-                </button>
-                <button
+                </button></Can>
+                <Can permission="tasks.write"><button
                   disabled={busy}
                   className="secondary"
                   onClick={() => edit(data.task)}
                 >
                   <Pencil size={15} />
                   ویرایش
-                </button>
-                <button
+                </button></Can>
+                <Can permission="tasks.write"><button
                   disabled={busy}
                   className="text-button danger"
                   onClick={() => status("CANCELLED")}
                 >
                   بستن بدون انجام
-                </button>
+                </button></Can>
               </>
             ) : (
-              <button
+              <Can permission="tasks.write"><button
                 disabled={busy}
                 className="secondary"
                 onClick={() => status("OPEN")}
               >
                 بازگشایی پیگیری
-              </button>
+              </button></Can>
             )}
           </div>
           <h3 className="section-label">روند پیگیری و یادداشت‌ها</h3>
@@ -679,7 +680,7 @@ function TaskDetail({
               </div>
             ))}
           </div>
-          <form
+          <Can permission="tasks.write"><form
             className="comment-form"
             onSubmit={async (e) => {
               e.preventDefault();
@@ -706,11 +707,11 @@ function TaskDetail({
                 placeholder="نتیجه پیگیری را برای همکاران ثبت کنید…"
               />
             </label>
-            <button disabled={busy || !note.trim()} className="primary">
+            <Can permission="tasks.write"><button disabled={busy || !note.trim()} className="primary">
               <MessageSquare size={16} />
               ثبت یادداشت
-            </button>
-          </form>
+            </button></Can>
+          </form></Can>
         </>
       )}
     </Modal>

@@ -1,4 +1,5 @@
 "use client";
+import { Can } from "@/components/Permissions";
 import { Badge, Modal, Table } from "@/components/ui";
 import { avatar } from "@/features/workspace/shared";
 import CustomerRelations from "./CustomerRelations";
@@ -70,29 +71,29 @@ export default function CustomerProfile({
             <dd>{date(profile.summary.first_visit)}</dd>
             <dt>آخرین مراجعه</dt>
             <dd>{date(profile.summary.last_visit)}</dd>
-            <dt>مجموع خرید</dt>
+            <Can permission="invoices.read"><dt>مجموع خرید</dt>
             <dd>{money(profile.summary.total_spend)}</dd>
             <dt>خرید به ازای مراجعه</dt>
             <dd>{money(profile.summary.average_spend)}</dd>
             <dt>مانده بدهی</dt>
             <dd>{money(profile.summary.debt)}</dd>
-            <dt>سود مشارکتی</dt>
+            </Can><Can permission="finance.read"><dt>سود مشارکتی</dt>
             <dd>{money(profile.summary.contribution)}</dd>
-            <dt>امتیاز و سطح</dt>
+            </Can><Can permission="loyalty.read"><dt>امتیاز و سطح</dt>
             <dd>
               {fa(profile.summary.points)} ·{" "}
               {labels[profile.summary.tier] || profile.summary.tier}
             </dd>
-            <dt>خوشه RFM</dt>
+            </Can><Can permission="rfm.read"><dt>خوشه RFM</dt>
             <dd>
               {labels[profile.summary.segment] || profile.summary.segment}
             </dd>
-            <dt>لغو / عدم حضور</dt>
+            </Can><Can permission="appointments.read"><dt>لغو / عدم حضور</dt>
             <dd>
               {fa(profile.summary.cancelled)} / {fa(profile.summary.no_shows)}
             </dd>
             <dt>نوبت بعدی</dt>
-            <dd>{date(profile.summary.next_appointment, true)}</dd>
+            <dd>{date(profile.summary.next_appointment, true)}</dd></Can>
           </dl>
         </>
       )}
@@ -138,7 +139,7 @@ export default function CustomerProfile({
           </span>
         ))}
       </div>
-      <h3>سوابق نوبت</h3>
+      <Can permission="appointments.read"><h3>سوابق نوبت</h3>
       <Table
         rows={profile.appointments}
         columns={[
@@ -154,7 +155,7 @@ export default function CustomerProfile({
           },
         ]}
       />
-      <h3>سوابق فاکتور</h3>
+      </Can><Can permission="invoices.read"><h3>سوابق فاکتور</h3>
       <Table
         rows={profile.invoices}
         columns={[
@@ -172,7 +173,7 @@ export default function CustomerProfile({
           },
         ]}
       />
-      <h3>گردش امتیاز</h3>
+      </Can><Can permission="loyalty.read"><h3>گردش امتیاز</h3>
       <Table
         rows={profile.loyalty}
         columns={[
@@ -185,6 +186,6 @@ export default function CustomerProfile({
           },
         ]}
       />
-    </Modal>
+    </Can></Modal>
   );
 }

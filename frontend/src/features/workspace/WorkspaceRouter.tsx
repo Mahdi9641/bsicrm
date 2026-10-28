@@ -1,4 +1,5 @@
 "use client";
+import AccessCenter from "@/features/access/AccessCenter";
 import ManagementPage from "@/features/admin/ManagementPage";
 import SubscriptionPage from "@/features/admin/SubscriptionPage";
 import CommissionRulesPage from "@/features/finance/CommissionRulesPage";
@@ -24,7 +25,8 @@ import TasksPage from "./TasksPage";
 import type { WorkspaceContext } from "./types";
 import VisitsPage from "./VisitsPage";
 export default function WorkspaceRouter(props: WorkspaceContext) {
-  if (["salons","branches","users"].includes(props.tab)) return <ManagementPage section={props.tab} user={props.user} onChanged={props.done}/>;
+  if (["users","roles"].includes(props.tab)) return <AccessCenter section={props.tab} user={props.user} onChanged={props.done}/>;
+  if (["salons","branches"].includes(props.tab)) return <ManagementPage section={props.tab} user={props.user} onChanged={props.done}/>;
   if (props.tab==="subscription") return <SubscriptionPage user={props.user} onChanged={props.done}/>;
   if (props.tab === "resources") return <ResourcesPage />;
   if (props.tab === "commission-rules")

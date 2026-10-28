@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { Editor, field, Loading, Table } from "@/components/ui";
 import { api, Row } from "@/lib/api";
 import { useEffect, useState } from "react";
@@ -20,12 +21,12 @@ export default function ResourcesPage() {
           <h2>فضا و تجهیزات سالن</h2>
           <p>هر صندلی، اتاق یا دستگاه یک منبع مستقل با ظرفیت یک نوبت است.</p>
         </div>
-        <button
+        <Can permission="resources.write"><button
           className="primary"
           onClick={() => setEdit({ active: true, kind: "CHAIR" })}
         >
           منبع جدید
-        </button>
+        </button></Can>
       </div>
       {error && (
         <p role="alert" className="error">
@@ -52,9 +53,9 @@ export default function ResourcesPage() {
             },
           ]}
           actions={(r) => (
-            <button className="text-button" onClick={() => setEdit(r)}>
+            <Can permission="resources.write"><button className="text-button" onClick={() => setEdit(r)}>
               ویرایش
-            </button>
+            </button></Can>
           )}
         />
       ) : (

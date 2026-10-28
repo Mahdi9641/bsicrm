@@ -156,6 +156,7 @@ export const navigation = [
   },
   {id:"salons",title:"مدیریت سالن‌ها",icon:Settings,roles:["ADMIN"]},
   {id:"branches",title:"مدیریت شعب",icon:Settings,roles:["ADMIN","MANAGER"]},
+  {id:"roles",title:"مدیریت نقش‌ها",icon:ShieldCheck,roles:["ADMIN","MANAGER"]},
   {id:"users",title:"مدیریت کاربران",icon:Users,roles:["ADMIN","MANAGER"]},
   {id:"subscription",title:"خرید و تمدید اشتراک",icon:ShoppingBag,roles:["ADMIN","MANAGER"]},
   { id: "security", title: "امنیت حساب من", icon: LockKeyhole, roles: all },

@@ -1,4 +1,5 @@
 "use client";
+import {canAccess} from "@/components/Permissions";
 import { Table } from "@/components/ui";
 import {useState} from "react";
 import {FormModal} from "@/features/admin/ManagementPage";
@@ -44,13 +45,13 @@ export default function CustomersPage({
           {
             key: "total_spend",
             title: "مجموع خرید",
-            render: (r) => money(r.total_spend),
+            render: (r) => r.total_spend===undefined?"—":money(r.total_spend),
           },
           {
             key: "points",
             title: "امتیاز باشگاه",
             render: (r) => (
-              <span className="gold-text">{fa(r.points)} امتیاز</span>
+              <span className="gold-text">{r.points===undefined?"—":fa(r.points)+" امتیاز"}</span>
             ),
           },
           {
@@ -75,7 +76,7 @@ export default function CustomersPage({
             <button className="table-button" onClick={() => openProfile(r.id)}>
               پرونده ۳۶۰°
             </button>
-            {["ADMIN","MANAGER"].includes(user.role)&&r.active&&<button className="text-button" onClick={()=>setAccount(r)}>ساخت حساب ورود</button>}
+            {canAccess(user,"users.write")&&r.active&&<button className="text-button" onClick={()=>setAccount(r)}>ساخت حساب ورود</button>}
             {operations && (
               <button
                 className="icon-btn"

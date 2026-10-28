@@ -1,4 +1,5 @@
 "use client";
+import {usePermissions} from "@/components/Permissions";
 import { Badge, Empty } from "@/components/ui";
 import { date, Row } from "@/lib/api";
 import { Plus, Receipt } from "lucide-react";
@@ -11,6 +12,7 @@ export default function VisitsPage({
   setDialog,
   action,
 }: WorkspaceContext) {
+  const has=usePermissions();
   return (
     <div className="visit-grid">
       {!filtered.length && <Empty />}
@@ -34,7 +36,7 @@ export default function VisitsPage({
                   <small>{i.staff_name}</small>
                 </div>
                 <Badge value={i.status} />
-                {["PLANNED", "IN_SERVICE"].includes(i.status) && (
+                {has("visits.execute")&&["PLANNED", "IN_SERVICE"].includes(i.status) && (
                   <button
                     className="table-button"
                     disabled={busyAction}
@@ -71,7 +73,7 @@ export default function VisitsPage({
                   </button>
                 </>
               )}
-              {v.status === "COMPLETED" && !v.invoice_id && (
+              {has("invoices.write")&&v.status === "COMPLETED" && !v.invoice_id && (
                 <button
                   className="primary"
                   onClick={() => setDialog({ type: "invoice", visit: v })}
@@ -80,7 +82,7 @@ export default function VisitsPage({
                   صدور فاکتور
                 </button>
               )}
-              {v.invoice_id && (
+              {has("invoices.read")&&v.invoice_id && (
                 <button
                   className="secondary"
                   onClick={() =>

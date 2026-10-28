@@ -20,7 +20,7 @@ public class GrowthService {
   }
 
   private String column(String type, long id) {
-    access.roles("ADMIN", "MANAGER", "MARKETING", "FINANCE");
+    access.permission(type+".read");
     access.plan("ADVANCED");
     if (!Set.of("campaigns", "events").contains(type)) throw ApiError.missing();
     db.one("select id from " + type + " where id=? and branch_id=?", id, access.branch());
@@ -30,7 +30,7 @@ public class GrowthService {
   @Transactional
   public Object attribute(String type, long id, Attribution r) {
     String col = column(type, id);
-    access.marketing();
+    access.permission(type+".write");
     var invoice =
         db.one(
             "select * from invoices where id=? and branch_id=? and status<>'VOID' for update",
@@ -63,7 +63,7 @@ public class GrowthService {
   @Transactional
   public Object cost(String type, long id, Cost r) {
     String col = column(type, id);
-    access.finance();
+    access.permission("finance.write");
     db.one("select id from expenses where id=? and branch_id=?", r.expenseId(), access.branch());
     long key =
         db.id(

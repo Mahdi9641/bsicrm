@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { Badge, Table } from "@/components/ui";
 import { fa, labels, money } from "@/lib/api";
 import { ArrowUpLeft, Gift } from "lucide-react";
@@ -103,12 +104,12 @@ export default function RfmPage({
                   ثبت پاداش / مصرف
                 </button>
               ) : (
-                <button
+                <Can permission="customers.read"><button
                   className="table-button"
                   onClick={() => openProfile(r.id)}
                 >
                   پرونده مشتری
-                </button>
+                </button></Can>
               )}
             </>
           )}

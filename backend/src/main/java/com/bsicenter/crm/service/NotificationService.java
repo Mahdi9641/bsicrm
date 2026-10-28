@@ -34,7 +34,7 @@ public class NotificationService {
   }
 
   private void authorize() {
-    access.roles("ADMIN", "MANAGER", "MARKETING");
+    access.permission("messages.read");
     access.plan("STANDARD");
   }
 
@@ -66,6 +66,7 @@ public class NotificationService {
 
   @Transactional
   public Object update(long id, Template r) {
+    access.permission("messages.write");
     authorize();
     var t =
         db.one(
@@ -89,7 +90,7 @@ public class NotificationService {
 
   @Transactional
   public Object invoice(long id, InvoiceSms request) {
-    access.sales();
+    access.permission("invoices.write");
     access.plan("STANDARD");
     var i =
         db.one(
@@ -115,6 +116,7 @@ public class NotificationService {
 
   @Transactional
   public Object cancel(long id) {
+    access.permission("messages.write");
     authorize();
     var m =
         db.one("select * from messages where id=? and branch_id=? for update", id, access.branch());

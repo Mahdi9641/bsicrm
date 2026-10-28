@@ -14,11 +14,12 @@ import org.springframework.transaction.annotation.Transactional;
 @org.springframework.stereotype.Service
 public class CatalogService {
   private final Db db;
+  private final AccessManagementService iam;
   private final Access a;
   private final PasswordEncoder passwords;
 
-  public CatalogService(Db db, Access a, PasswordEncoder passwords) {
-    this.db = db;
+  public CatalogService(Db db, Access a, PasswordEncoder passwords, AccessManagementService iam) {
+    this.db = db; this.iam=iam;
     this.a = a;
     this.passwords = passwords;
   }
@@ -28,20 +29,35 @@ public class CatalogService {
   }
 
   public Object bootstrap() {
-    a.user();
-    var settings=a.settings();var branch=db.one("select * from branches where id=?",a.branch());
+    var user=a.user();var settings=a.settings();var branch=db.one("select * from branches where id=?",a.branch());
     boolean valid=Boolean.TRUE.equals(settings.get("active")) && Boolean.TRUE.equals(branch.get("active")) && !((java.sql.Date)settings.get("expires_on")).toLocalDate().isBefore(LocalDate.now(ZoneId.of("Asia/Tehran")));
-    return Map.of("settings",settings,"branch",branch,"subscriptionActive",valid,
-      "accounts",a.customer()?List.of():db.list("select id,name from accounts where branch_id=? and active",a.branch()));
+    Map<String,Object> visibleSettings=settings;
+    if(!a.has("settings.read")){
+      visibleSettings=new LinkedHashMap<>();for(String key:List.of("id","name","organization","plan","expires_on","active","timezone","currency"))visibleSettings.put(key,settings.get(key));
+    }
+    return Map.of("settings",visibleSettings,"branch",branch,"subscriptionActive",valid,"permissions",a.policy().permissions(),"menus",a.policy().menus(),
+      "accounts",a.has("finance.read")||a.has("invoices.write")?db.list("select id,name from accounts where branch_id=? and active",a.branch()):List.of());
+  }
+  public Object lookups(String q,Long customerId){
+    if(q.length()>100)throw ApiError.bad("متن جستجو طولانی است");
+    a.user();long branch=a.branch();
+    boolean operations=a.has("appointments.write")||a.has("visits.write")||a.has("invoices.write");
+    boolean catalog=operations||a.has("staff.write")||a.has("commission-rules.read");
+    return Map.of(
+      "customers",operations||a.has("customers.read")||a.has("tasks.write")||a.has("events.write")?db.list("select id,first_name,last_name,mobile from customers where branch_id=? and active and (cast(? as bigint) is null or id=?) and (first_name||' '||last_name ilike ? or mobile like ?) order by id desc limit 100",branch,customerId,customerId,"%"+q+"%","%"+q+"%"):List.of(),
+      "services",catalog||a.has("services.read")?db.list("select id,name,category,price,duration_minutes,buffer_minutes,active from services where branch_id=? and active order by name",branch):List.of(),
+      "staff",catalog?db.list("select t.id,t.name,t.work_start,t.work_end,t.work_days,t.active,coalesce((select json_agg(service_id)::text from staff_services where staff_id=t.id),'[]') service_ids from staff t where t.branch_id=? and t.active"+(a.stylist()?" and t.id="+a.staffId():""),branch):List.of(),
+      "products",a.has("invoices.write")||a.has("products.read")?db.list("select id,name,price,stock,active from products where branch_id=? and active",branch):List.of(),
+      "accounts",a.has("finance.read")||a.has("invoices.write")?db.list("select id,name from accounts where branch_id=? and active",branch):List.of());
   }
 
   public Object customers(String q, int page) {
-    a.roles("ADMIN", "MANAGER", "RECEPTION", "MARKETING", "FINANCE");
+    a.permission("customers.read");
     if (q.length() > 100 || page < 0) throw ApiError.bad("جستجو معتبر نیست");
     q = com.bsicenter.crm.validation.CustomerIdentity.digits(q);
     if (q.startsWith("+98") || q.startsWith("0098"))
       q = com.bsicenter.crm.validation.CustomerIdentity.phone(q);
-    return db.list(
+    var rows = db.list(
         "select c.*,coalesce((select sum(points) from loyalty_entries l where"
             + " l.customer_id=c.id),0) points,coalesce((select sum(total) from invoices i where"
             + " i.customer_id=c.id and i.status<>'VOID'),0) total_spend,(select max(check_in_at)"
@@ -55,10 +71,12 @@ public class CatalogService {
         "%" + q + "%",
         "%" + q + "%",
         page * 100);
+    for(var row:rows){if(!a.has("invoices.read"))row.remove("total_spend");if(!a.has("loyalty.read"))row.remove("points");}
+    return rows;
   }
 
   public Object customer(long id) {
-    a.roles("ADMIN", "MANAGER", "RECEPTION", "MARKETING", "FINANCE");
+    a.permission("customers.read");
     var c = scoped("customers", id);
     return Map.of(
         "customer",
@@ -68,21 +86,21 @@ public class CatalogService {
         "relations",
         db.list("select * from customer_relations where customer_id=? order by id", id),
         "appointments",
-        db.list(
-            "select * from appointments where customer_id=? order by starts_at desc limit 100", id),
+        a.has("appointments.read")?db.list(
+            "select * from appointments where customer_id=? order by starts_at desc limit 100", id):List.of(),
         "invoices",
-        db.list(
+        a.has("invoices.read")?db.list(
             "select i.*,coalesce((select sum(p.amount) from payments p where p.invoice_id=i.id and"
                 + " not reversed),0) paid from invoices i where customer_id=? order by id desc"
                 + " limit 100",
-            id),
+            id):List.of(),
         "preferences",
         db.list("select * from customer_preferences where customer_id=?", id),
         "occasions",
         db.list("select * from customer_occasions where customer_id=?", id),
         "loyalty",
-        db.list(
-            "select * from loyalty_entries where customer_id=? order by id desc limit 100", id));
+        a.has("loyalty.read")?db.list(
+            "select * from loyalty_entries where customer_id=? order by id desc limit 100", id):List.of());
   }
 
   private Object customerSummary(long id) {
@@ -127,12 +145,17 @@ c.created_at from customers c where c.id=?
                 : Db.number(summary, "frequency") >= Db.number(settings, "loyal_visits")
                     ? "LOYAL"
                     : "GROWING");
+    if(!a.has("invoices.read"))for(String key:List.of("total_spend","average_spend","debt"))summary.remove(key);
+    if(!a.has("finance.read"))summary.remove("contribution");
+    if(!a.has("loyalty.read"))for(String key:List.of("points","tier"))summary.remove(key);
+    if(!a.has("rfm.read"))summary.remove("segment");
+    if(!a.has("appointments.read"))for(String key:List.of("cancelled","no_shows","next_appointment"))summary.remove(key);
     return summary;
   }
 
   @Transactional
   public Object relation(long id, Relation body) {
-    a.operations();
+    a.permission("customers.write");
     scoped("customers", id);
     if (body.birthDate() != null && body.birthDate().isAfter(LocalDate.now()))
       throw ApiError.bad("تاریخ تولد معتبر نیست");
@@ -151,7 +174,7 @@ c.created_at from customers c where c.id=?
 
   @Transactional
   public Object removeRelation(long id, long relationId) {
-    a.operations();
+    a.permission("customers.write");
     scoped("customers", id);
     if (db.run("delete from customer_relations where id=? and customer_id=?", relationId, id) == 0)
       throw ApiError.missing();
@@ -161,13 +184,13 @@ c.created_at from customers c where c.id=?
 
   @Transactional
   public Object createCustomer(@Valid Customer c) {
-    a.operations();
+    a.permission("customers.write");
     return saveCustomer(null, c);
   }
 
   @Transactional
   public Object editCustomer(long id, @Valid Customer c) {
-    a.operations();
+    a.permission("customers.write");
     scoped("customers", id);
     return saveCustomer(id, c);
   }
@@ -240,7 +263,7 @@ c.created_at from customers c where c.id=?
   }
 
   public Object preference(long id, @Valid Preference p) {
-    a.operations();
+    a.permission("customers.write");
     scoped("customers", id);
     return Map.of(
         "id",
@@ -253,7 +276,7 @@ c.created_at from customers c where c.id=?
   }
 
   public Object occasion(long id, @Valid Occasion p) {
-    a.operations();
+    a.permission("customers.write");
     scoped("customers", id);
     return Map.of(
         "id",
@@ -266,13 +289,14 @@ c.created_at from customers c where c.id=?
   }
 
   public Object services() {
+    a.permission("services.read");
     a.user();
     return db.list("select * from services where branch_id=? order by id", a.branch());
   }
 
   @Transactional
   public Object service(@Valid Service s) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("services.write");
     long id =
         db.id(
             "insert into"
@@ -293,7 +317,7 @@ c.created_at from customers c where c.id=?
 
   @Transactional
   public Object serviceEdit(long id, @Valid Service s) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("services.write");
     scoped("services", id);
     db.run(
         "update services set"
@@ -313,6 +337,7 @@ c.created_at from customers c where c.id=?
   }
 
   public Object staff() {
+    a.permission("staff.read");
     a.user();
     if (a.stylist())
       return db.list("select * from staff where id=? and branch_id=?", a.staffId(), a.branch());
@@ -327,13 +352,13 @@ c.created_at from customers c where c.id=?
 
   @Transactional
   public Object staff(@Valid Staff s) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("staff.write");
     return saveStaff(null, s);
   }
 
   @Transactional
   public Object staffEdit(long id, @Valid Staff s) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("staff.write");
     scoped("staff", id);
     return saveStaff(id, s);
   }
@@ -366,14 +391,14 @@ c.created_at from customers c where c.id=?
   }
 
   public Object leaves(long id) {
-    a.roles("ADMIN", "MANAGER", "RECEPTION");
+    a.permission("staff.read");
     scoped("staff", id);
     return db.list("select * from staff_leave where staff_id=? order by starts_at desc", id);
   }
 
   @Transactional
   public Object leave(long id, @Valid Leave l) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("staff.write");
     db.one("select * from staff where id=? and branch_id=? for update", id, a.branch());
     if (!l.endsAt().isAfter(l.startsAt())) throw ApiError.bad("بازه مرخصی معتبر نیست");
     if (db.id(
@@ -395,12 +420,12 @@ c.created_at from customers c where c.id=?
   }
 
   public Object products() {
-    a.sales();
+    a.permission("products.read");
     return db.list("select * from products where branch_id=? order by id", a.branch());
   }
 
   public Object product(@Valid Product p) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("products.write");
     return Map.of(
         "id",
         db.id(
@@ -417,7 +442,7 @@ c.created_at from customers c where c.id=?
   }
 
   public Object productEdit(long id, @Valid Product p) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("products.write");
     scoped("products", id);
     db.run(
         "update products set name=?,category=?,price=?,cost=?,minimum_stock=?,supplier=?,active=?"
@@ -435,7 +460,7 @@ c.created_at from customers c where c.id=?
 
   @Transactional
   public Object stock(long id, @Valid Stock p) {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("products.write");
     if (p.quantity() == 0) throw ApiError.bad("مقدار نباید صفر باشد");
     var row =
         db.one("select * from products where id=? and branch_id=? for update", id, a.branch());
@@ -451,54 +476,21 @@ c.created_at from customers c where c.id=?
   }
 
   public Object users() {
-    a.roles("ADMIN");
-    return db.list(
-        "select u.id,u.name,u.username,u.role,u.branch_id,u.staff_id,u.active from app_users u"
-            + " order by id");
+    return iam.users();
   }
 
   @Transactional
   public Object user(@Valid User u) {
-    a.roles("ADMIN","MANAGER");
-    if (!a.role().equals("ADMIN")) {
-      if (Set.of("ADMIN","MANAGER").contains(u.role())) throw ApiError.bad("این نقش فقط توسط مدیر سامانه ایجاد می‌شود");
-      db.one("select id from branches where id=? and salon_id=?",u.branchId(),a.salon());
-    }
-    db.one("select id from branches where id=? and active", u.branchId());
-    if (u.role().equals("STYLIST") && u.staffId() == null)
-      throw ApiError.bad("پرسنل آرایشگر را انتخاب کنید");
-    if (u.staffId() != null)
-      db.one("select id from staff where id=? and branch_id=?", u.staffId(), u.branchId());
-    long id =
-        db.id(
-            "insert into app_users(username,password_hash,name,role,branch_id,staff_id)"
-                + " values(?,?,?,?,?,?) returning id",
-            u.username(),
-            passwords.encode(u.password()),
-            u.name(),
-            u.role(),
-            u.branchId(),
-            u.staffId());
-    a.audit("CREATE", "USER", id, null);
-    return Map.of("id", id);
+    return iam.saveUser(null,new AccessManagementService.UserWrite(u.name(),u.username(),u.password(),iam.builtInRole(u.role()),u.branchId(),u.staffId(),null,true,Map.of(),0L));
   }
 
   public Object userPassword(long id, UserPassword body) {
-    a.roles("ADMIN");
-    db.one("select id from app_users where id=?", id);
-    db.run("update app_users set password_hash=?,failed_attempts=0,locked_until=null where id=?", passwords.encode(body.password()), id);
-    db.run("update auth_sessions set revoked=true where user_id=?", id);
-    a.audit("PASSWORD_RESET", "USER", id, null);
-    return Map.of("ok", true);
+    return iam.reset(id,new AccessManagementService.Password(body.password()));
   }
 
   public Object deactivate(long id) {
-    a.roles("ADMIN");
-    if (id == a.uid()) throw ApiError.bad("غیرفعال‌سازی حساب جاری مجاز نیست");
-    db.run("update app_users set active=false where id=?", id);
-    db.run("update auth_sessions set revoked=true where user_id=?", id);
-    a.audit("DEACTIVATE", "USER", id, null);
-    return Map.of("ok", true);
+    var row=db.one("select * from app_users where id=?",id);
+    return iam.saveUser(id,iam.legacyUpdate(id,row.get("name").toString(),row.get("username").toString(),row.get("role").toString(),Db.number(row,"branch_id"),row.get("staff_id")==null?null:Db.number(row,"staff_id"),false));
   }
 
   public Object branches() {
@@ -533,7 +525,7 @@ c.created_at from customers c where c.id=?
   }
 
   public Object audit() {
-    a.roles("ADMIN", "MANAGER");
+    a.permission("audit.read");
     return db.list(
         "select l.*,u.name user_name from audit_logs l left join app_users u on u.id=l.user_id"
             + " where l.branch_id=? order by l.id desc limit 200",

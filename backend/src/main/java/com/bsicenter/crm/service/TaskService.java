@@ -22,7 +22,7 @@ public class TaskService {
   }
 
   private void authorize() {
-    access.roles("ADMIN", "MANAGER", "RECEPTION", "MARKETING");
+    access.permission("tasks.read");
   }
 
   private boolean manager() {
@@ -161,6 +161,7 @@ public class TaskService {
 
   @Transactional
   public Object create(Write request) {
+    access.permission("tasks.write");
     authorize();
     validate(request);
     long id =
@@ -183,6 +184,7 @@ public class TaskService {
 
   @Transactional
   public Object update(long id, Write request) {
+    access.permission("tasks.write");
     authorize();
     var old = scoped(id, true);
     verifyVersion(Db.number(old, "version"), request.version());
@@ -207,6 +209,7 @@ public class TaskService {
 
   @Transactional
   public Object transition(long id, Transition request) {
+    access.permission("tasks.write");
     authorize();
     var row = scoped(id, true);
     verifyVersion(Db.number(row, "version"), request.version());
@@ -225,6 +228,7 @@ public class TaskService {
 
   @Transactional
   public Object comment(long id, Comment request) {
+    access.permission("tasks.write");
     authorize();
     scoped(id, true);
     event(id, "COMMENT", request.body().trim());

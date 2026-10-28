@@ -172,7 +172,7 @@ public class BookingService {
   public Object create(Create request) {
     if (access.customer()) {
       if (request.customerId() != access.customerId()) throw new ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN, "دسترسی به این مشتری مجاز نیست");
-    } else access.operations();
+    } else access.permission("appointments.write");
     long branch = access.branch();
     db.one(
         "select id from customers where id=? and branch_id=? and active",
@@ -201,7 +201,7 @@ public class BookingService {
 
   @Transactional
   public Object reschedule(long id, Reschedule request) {
-    if (!access.customer()) access.operations();
+    if (!access.customer()) access.permission("appointments.write");
     var appointment =
         db.one(
             "select * from appointments where id=? and branch_id=? for update",
@@ -238,7 +238,8 @@ public class BookingService {
 
   @Transactional(readOnly = true)
   public Object availability(Availability request) {
-    if (!access.customer()) access.operations();
+    if (!access.customer()) access.permission("appointments.read");
+    if(access.stylist()&&request.items().stream().anyMatch(item->item.staffId()!=access.staffId()))throw ApiError.missing();
     LocalDate today = LocalDate.now(ZONE);
     if (request.date().isBefore(today) || request.date().isAfter(today.plusDays(180)))
       throw ApiError.bad("جستجوی زمان آزاد حداکثر تا ۱۸۰ روز آینده است");
@@ -264,7 +265,8 @@ public class BookingService {
   }
 
   public Object detail(long id) {
-    access.operations();
+    access.permission("appointments.read");
+    if(access.stylist())db.one("select id from appointment_items where appointment_id=? and staff_id=?",id,access.staffId());
     var appointment =
         db.one(
             "select p.*,c.first_name||' '||c.last_name customer_name from appointments p join"
@@ -275,7 +277,7 @@ public class BookingService {
         "appointment",
         appointment,
         "items",
-        db.list("select * from appointment_items where appointment_id=? order by starts_at,id", id),
+        db.list("select * from appointment_items where appointment_id=?"+(access.stylist()?" and staff_id="+access.staffId():"")+" order by starts_at,id", id),
         "history",
         db.list(
             "select h.*,u.name actor_name from appointment_changes h join app_users u on"

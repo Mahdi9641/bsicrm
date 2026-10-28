@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { CustomerPicker, Lookups } from "@/components/BusinessDialogs";
 import { Badge, Modal, Table } from "@/components/ui";
 import { api, Row } from "@/lib/api";
@@ -42,7 +43,7 @@ export default function Participants({
   };
   return (
     <Modal title={"مهمانان · " + event.name} onClose={close} wide>
-      <form
+      <Can permission="events.write"><form
         onSubmit={async (e) => {
           e.preventDefault();
           await change(customer, "REGISTERED");
@@ -54,11 +55,11 @@ export default function Participants({
             onChange={setCustomer}
             initial={l.customers}
           />
-          <button className="primary" disabled={busy}>
+          <Can permission="events.write"><button className="primary" disabled={busy}>
             ثبت مهمان
-          </button>
+          </button></Can>
         </div>
-      </form>
+      </form></Can>
       {error && <p className="error">{error}</p>}
       <Table
         rows={rows}
@@ -73,22 +74,22 @@ export default function Participants({
         actions={(r) => (
           <>
             {r.status === "REGISTERED" && (
-              <button
+              <Can permission="events.write"><button
                 className="table-button"
                 disabled={busy}
                 onClick={() => change(r.customer_id, "ATTENDED")}
               >
                 ثبت حضور
-              </button>
+              </button></Can>
             )}
             {r.status !== "CANCELLED" && (
-              <button
+              <Can permission="events.write"><button
                 className="text-button danger"
                 disabled={busy}
                 onClick={() => change(r.customer_id, "CANCELLED")}
               >
                 لغو
-              </button>
+              </button></Can>
             )}
           </>
         )}

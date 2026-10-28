@@ -1,4 +1,5 @@
 "use client";
+import {canSee} from "@/components/Permissions";
 import { fa, Row } from "@/lib/api";
 import {
   ArrowUpLeft,
@@ -266,7 +267,7 @@ export default function DashboardPage({
           ) : (
             <div className="quick-links">
               {navigation
-                .filter((n) => n.roles.includes(user.role))
+                .filter((n) => canSee(user,n.id))
                 .slice(1, 5)
                 .map((n) => (
                   <button key={n.id} onClick={() => navigate(n.id)}>

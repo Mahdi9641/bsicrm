@@ -20,7 +20,7 @@ public class TreasuryService {
 
   @Transactional
   public Object account(Account r) {
-    access.finance();
+    access.permission("finance.write");
     long id =
         db.id(
             "insert into accounts(branch_id,name) values(?,?) returning id",
@@ -36,7 +36,7 @@ public class TreasuryService {
   }
 
   public Object transfers() {
-    access.finance();
+    access.permission("finance.read");
     return db.list(
         "select t.*,a.name from_name,b.name to_name from account_transfers t join accounts a on"
             + " a.id=t.from_account_id join accounts b on b.id=t.to_account_id where t.branch_id=?"
@@ -46,7 +46,7 @@ public class TreasuryService {
 
   @Transactional
   public Object transfer(Transfer r) {
-    access.finance();
+    access.permission("finance.write");
     if (r.fromAccountId() == r.toAccountId())
       throw ApiError.bad("حساب مبدا و مقصد باید متفاوت باشند");
     for (long id : new TreeSet<>(List.of(r.fromAccountId(), r.toAccountId())))

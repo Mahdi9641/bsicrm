@@ -117,6 +117,10 @@ public class AuthService {
     Map<String,Object> out = new LinkedHashMap<>();
     out.put("id",u.get("id")); out.put("name",u.get("name")); out.put("username",u.get("username")); out.put("role",u.get("role")); out.put("branchId",u.get("branch_id")); out.put("salonId",u.get("salon_id"));
     if (u.get("customer_id") != null) out.put("customerId", u.get("customer_id"));
+    var policy=access.policyFor(u);
+    out.put("permissions",policy.permissions()); out.put("menus",policy.menus());
+    out.put("roleName",policy.roleName()); out.put("accessRoleId",policy.roleId());
+    out.put("accessVersion",u.getOrDefault("access_version",0));
     return out;
   }
 

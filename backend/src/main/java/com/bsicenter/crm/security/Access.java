@@ -11,12 +11,17 @@ import org.springframework.web.server.ResponseStatusException;
 @Component
 public class Access {
   final Db db;
+  final PermissionService permissions;
 
-  public Access(Db db) {
-    this.db = db;
+  public Access(Db db, PermissionService permissions) {
+    this.db = db; this.permissions=permissions;
   }
 
   public Map<String, Object> user() {
+    var attributes=org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+    if(attributes!=null && attributes.getAttribute("bsi.user",0) instanceof Map<?,?> cached){
+      @SuppressWarnings("unchecked") var value=(Map<String,Object>)cached;return value;
+    }
     var auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth == null || !(auth.getPrincipal() instanceof Jwt jwt))
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "ابتدا وارد سامانه شوید");
@@ -28,7 +33,24 @@ public class Access {
             UUID.fromString(jwt.getClaimAsString("sid")));
     if (rows.isEmpty())
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "نشست منقضی شده است");
+    if(attributes!=null)attributes.setAttribute("bsi.user",rows.get(0),0);
     return rows.get(0);
+  }
+
+  public PermissionService.Snapshot policyFor(Map<String,Object> u){return permissions.resolve(u);}
+  public PermissionService.Snapshot policy() {
+    var attributes=org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+    if(attributes!=null && attributes.getAttribute("bsi.policy",0) instanceof PermissionService.Snapshot cached)return cached;
+    var snapshot=permissions.resolve(user());
+    if(attributes!=null)attributes.setAttribute("bsi.policy",snapshot,0);
+    return snapshot;
+  }
+  public boolean has(String permission){return policy().permissions().contains(permission);}
+  public void permission(String permission){
+    if(!has(permission))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"مجوز انجام این عملیات برای حساب شما فعال نیست");
+  }
+  public void anyPermission(String... permissions){
+    if(Arrays.stream(permissions).noneMatch(this::has))throw new ResponseStatusException(HttpStatus.FORBIDDEN,"مجوز دسترسی به این بخش را ندارید");
   }
 
   public long uid() {

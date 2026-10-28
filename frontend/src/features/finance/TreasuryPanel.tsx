@@ -1,4 +1,5 @@
 "use client";
+import {Can} from "@/components/Permissions";
 import { Editor, field } from "@/components/ui";
 import { api, Row, uuid } from "@/lib/api";
 import { useState } from "react";
@@ -21,10 +22,10 @@ export default function TreasuryPanel({
           می‌شود.
         </p>
       </div>
-      <button className="secondary" onClick={() => setMode("account")}>
+      <Can permission="finance.write"><button className="secondary" onClick={() => setMode("account")}>
         حساب و مانده افتتاحیه
-      </button>
-      <button
+      </button></Can>
+      <Can permission="finance.write"><button
         className="primary"
         onClick={() => {
           setKey(uuid());
@@ -32,7 +33,7 @@ export default function TreasuryPanel({
         }}
       >
         انتقال بین حساب‌ها
-      </button>
+      </button></Can>
       {mode && (
         <Editor
           title={mode === "account" ? "ایجاد حساب" : "انتقال وجه"}

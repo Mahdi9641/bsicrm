@@ -1,4 +1,5 @@
 "use client";
+import {PermissionProvider,canAccess,canSee} from "@/components/Permissions";
 import { ThemeToggle } from "@/components/ThemeProvider";
 import { Lookups } from "@/components/BusinessDialogs";
 import CommandPalette from "@/components/CommandPalette";
@@ -63,10 +64,10 @@ export default function App() {
   const sessionGeneration = useRef(0);
   const seq = useRef(0),
     searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const can = (...roles: string[]) => !!user && roles.includes(user.role);
-  const operations = can("ADMIN", "MANAGER", "RECEPTION"),
-    manager = can("ADMIN", "MANAGER"),
-    finance = can("ADMIN", "MANAGER", "FINANCE");
+  const has=(permission:string)=>canAccess(user,permission);
+  const can = (...roles:string[]) => !!user && roles.includes(user.role);
+  const operations=has((tab==="dashboard"?"appointments":tab)+".write"),
+    manager=has(tab+".write"),finance=has(tab+".write");
   useEffect(() => {
     refreshSession()
       .then((r) => setUser(r.user))
@@ -108,6 +109,11 @@ export default function App() {
       window.removeEventListener("beforeinstallprompt", installer);
     };
   }, []);
+  useEffect(()=>{
+    if(!user)return;
+    const refresh=()=>api("/access/me").then(next=>{if(JSON.stringify(next.permissions)!==JSON.stringify(user.permissions)||next.accessVersion!==user.accessVersion){++seq.current;setData(null);setDialog(null);setProfile(null);setUser(next)}}).catch(()=>{});
+    window.addEventListener("focus",refresh);return()=>window.removeEventListener("focus",refresh);
+  },[user]);
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k" && user) {
@@ -131,27 +137,11 @@ export default function App() {
     if (generation !== sessionGeneration.current) return;
     setBootstrap(b);
     setSubscriptionBlocked(!b.subscriptionActive && user.role!=="ADMIN");
-    if (["ADMIN","MANAGER"].includes(user.role)) setBranches(await api("/tenancy/branches"));
+    if (canAccess(user,"branches.read")) setBranches(await api("/tenancy/branches")); else setBranches([]);
     if (!b.subscriptionActive && user.role!=="ADMIN") return;
-    const requests = [
-      api("/services"),
-      api("/staff"),
-      can("ADMIN", "MANAGER", "RECEPTION", "MARKETING", "FINANCE")
-        ? api("/customers")
-        : Promise.resolve([]),
-      can("ADMIN", "MANAGER", "RECEPTION", "FINANCE")
-        ? api("/products")
-        : Promise.resolve([]),
-    ];
-    const r = await Promise.all(requests);
-    if (generation !== sessionGeneration.current) return;
-    setLookups({
-      services: r[0],
-      staff: r[1],
-      customers: r[2],
-      products: r[3],
-      accounts: b.accounts,
-    });
+    const r=await api("/lookups");
+    if(generation!==sessionGeneration.current)return;
+    setLookups({...r,staff:r.staff.map((s:Row)=>({...s,service_ids:typeof s.service_ids==="string"?JSON.parse(s.service_ids):s.service_ids})),accounts:b.accounts});
   }, [user]);
   useEffect(()=>{
     if(user?.role==="CUSTOMER") router.replace("/portal");
@@ -176,14 +166,14 @@ export default function App() {
     setMobileMenu(false);
   };
   const load = useCallback(async () => {
-    if (!user || user.role==="CUSTOMER" || !navigation.find(n=>n.id===tab)?.roles.includes(user.role)) return;
+    if (!user || user.role==="CUSTOMER" || !canSee(user,tab)) return;
     if (subscriptionBlocked && !["subscription","security"].includes(tab)) return;
     const number = ++seq.current;
     setLoading(true);
     setError("");
     try {
       if (
-        ["tasks", "security", "resources", "commission-rules","salons","branches","users","subscription"].includes(tab)
+        ["tasks", "security", "resources", "commission-rules","salons","branches","users","roles","subscription"].includes(tab)
       ) {
         setData({});
         return;
@@ -257,12 +247,12 @@ export default function App() {
       <Login
         onLogin={(u) => {
           setUser(u);
-          if(u.role==="CUSTOMER") router.replace("/portal"); else navigate("dashboard");
+          if(u.role==="CUSTOMER") router.replace("/portal"); else navigate(navigation.find(n=>canSee(u,n.id))?.id||"security");
         }}
       />
     );
   if(user.role==="CUSTOMER") return <Loading/>;
-  const nav = navigation.filter((n) => n.roles.includes(user.role)),
+  const nav = navigation.filter((n) => canSee(user,n.id)),
     current = navigation.find((n) => n.id === tab)!;
   const rows: Array<Row> = Array.isArray(data) ? data : [];
   const filtered =
@@ -273,6 +263,7 @@ export default function App() {
         );
   const titleActions = () => {
     const create = () => setDialog({ type: tab });
+    if(tab!=="dashboard"&&!has(tab+".write"))return null;
     if (tab === "dashboard" && operations)
       return (
         <button
@@ -293,7 +284,7 @@ export default function App() {
           ثبت نوبت
         </button>
       );
-    if (tab === "invoices" && can("ADMIN", "MANAGER", "RECEPTION", "FINANCE"))
+    if (tab === "invoices" && has("invoices.write"))
       return (
         <button
           className="primary"
@@ -368,7 +359,7 @@ export default function App() {
       );
   };
   const main = () => {
-    if (!current?.roles.includes(user.role)) return <section className="subscription-block"><h2>دسترسی به این صفحه برای نقش شما مجاز نیست</h2><button className="primary" onClick={()=>navigate("dashboard")}>بازگشت به نمای کلی</button></section>;
+    if (!canSee(user,tab)) return <section className="subscription-block"><h2>دسترسی به این صفحه برای نقش شما مجاز نیست</h2><button className="primary" onClick={()=>navigate(navigation.find(n=>canSee(user,n.id))?.id||"security")}>رفتن به صفحهٔ مجاز</button></section>;
     if(subscriptionBlocked && !["subscription","security"].includes(tab))return <section className="subscription-block"><h2>دسترسی عملیاتی سالن متوقف شده است</h2><p>اشتراک منقضی شده یا سالن/شعبه غیرفعال است. برای ادامه، وضعیت را بررسی و اشتراک را تمدید کنید.</p>{user.role==="MANAGER"?<button className="primary" onClick={()=>navigate("subscription")}>خرید یا تمدید اشتراک</button>:<p>برای تمدید با مدیر سالن تماس بگیرید.</p>}<button className="secondary" onClick={()=>init().catch(e=>setError(e.message))}>بررسی دوباره</button></section>;
     if (loading && !data) return <Loading />;
     if (!data) return error ? null : <Empty />;
@@ -411,17 +402,11 @@ export default function App() {
     );
   };
   return (
-    <div className="app-shell">
+    <PermissionProvider user={user}><div className="app-shell">
       {commands && (
         <CommandPalette
           nav={nav}
-          customersAllowed={can(
-            "ADMIN",
-            "MANAGER",
-            "RECEPTION",
-            "MARKETING",
-            "FINANCE",
-          )}
+          customersAllowed={has("customers.read")}
           navigate={navigate}
           customer={openProfile}
           close={() => setCommands(false)}
@@ -453,7 +438,7 @@ export default function App() {
           </div>
           <ChevronLeft size={15} />
         </div>
-        {["ADMIN","MANAGER"].includes(user.role)&&<div className="tenant-picker"><label>سالن / شعبهٔ جاری<select aria-label="انتخاب شعبه جاری" value={bootstrap.branch?.id||""} onChange={async e=>{try{await api("/tenancy/switch","POST",{branchId:Number(e.target.value)});++seq.current;++sessionGeneration.current;setData(null);setDialog(null);setProfile(null);setLookups({customers:[],services:[],staff:[],products:[],accounts:[]});setUser(await api("/auth/me"));navigate("dashboard")}catch(e){setError((e as Error).message)}}}><option value="" disabled>انتخاب شعبه</option>{branches.map(b=><option key={b.id} value={b.id}>{b.salon_name} / {b.name}{b.active?"":" (غیرفعال)"}</option>)}</select></label></div>}
+        {has("branches.read")&&<div className="tenant-picker"><label>سالن / شعبهٔ جاری<select aria-label="انتخاب شعبه جاری" value={bootstrap.branch?.id||""} onChange={async e=>{try{await api("/tenancy/switch","POST",{branchId:Number(e.target.value)});++seq.current;++sessionGeneration.current;setData(null);setDialog(null);setProfile(null);setLookups({customers:[],services:[],staff:[],products:[],accounts:[]});setUser(await api("/auth/me"));navigate("dashboard")}catch(e){setError((e as Error).message)}}}><option value="" disabled>انتخاب شعبه</option>{branches.map(b=><option key={b.id} value={b.id}>{b.salon_name} / {b.name}{b.active?"":" (غیرفعال)"}</option>)}</select></label></div>}
         <nav>
           {nav.map((n) => (
             <div key={n.id}>
@@ -522,7 +507,7 @@ export default function App() {
               <span className="avatar small">{avatar(user.name)}</span>
               <div>
                 <strong>{user.name}</strong>
-                <small>{labels[user.role]}</small>
+                <small>{user.roleName||labels[user.role]}</small>
               </div>
             </div>
             <button
@@ -589,11 +574,11 @@ export default function App() {
               >
                 <RefreshCw size={18} className={loading ? "spin" : ""} />
               </button>
-              {!subscriptionBlocked && current?.roles.includes(user.role) && titleActions()}
+              {!subscriptionBlocked && canSee(user,tab) && titleActions()}
             </div>
           </div>
           {![
-            "dashboard","salons","branches","users","subscription",
+            "dashboard","salons","branches","users","roles","subscription",
             "settings",
             "reports",
             "finance",
@@ -671,8 +656,8 @@ export default function App() {
         />
       )}
       {profile && (
-        <CustomerProfile {...{ profile, setProfile, operations, setDialog }} />
+        <CustomerProfile {...{ profile, setProfile, setDialog }} operations={has("customers.write")} />
       )}
-    </div>
+    </div></PermissionProvider>
   );
 }

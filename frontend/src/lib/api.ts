@@ -186,6 +186,8 @@ export function uuid() {
 }
 
 export const auditLabels: Record<string,string> = {
+  "ROLE_UPDATED":"تغییر نقش و مجوزها",
+  "ACCESS_ROLE":"نقش دسترسی",
   "LOGIN": "ورود",
   "UPDATE": "ویرایش",
   "CREATE": "ایجاد",
